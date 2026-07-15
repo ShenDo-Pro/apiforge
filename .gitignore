@@ -24,3 +24,6 @@ frontend/.env.local
 .idea/
 .vscode/
 .DS_Store
+
+# Internal agent workspace data (not project source)
+.codebuddy/
