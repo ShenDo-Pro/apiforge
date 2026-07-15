@@ -1,0 +1,16 @@
+{
+  "title": "WebSocket 调试",
+  "urlPlaceholder": "输入 WS 地址，如 wss://echo.websocket.org",
+  "subprotocol": "子协议",
+  "connect": "连接",
+  "disconnect": "断开",
+  "message": "消息内容",
+  "send": "发送",
+  "received": "接收",
+  "sent": "发送",
+  "frames": "帧日志",
+  "noFrames": "暂无消息",
+  "binary": "二进制",
+  "connected": "已连接",
+  "disconnected": "已断开"
+}

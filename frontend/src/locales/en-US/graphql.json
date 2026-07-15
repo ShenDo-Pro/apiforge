@@ -1,0 +1,23 @@
+{
+  "title": "GraphQL",
+  "urlPlaceholder": "GraphQL endpoint URL, e.g. https://api.example.com/graphql",
+  "query": "Query",
+  "queryHint": "Write a GraphQL query / mutation",
+  "queryPlaceholder": "query ｛\n  __typename\n｝",
+  "queryRequired": "Query is required",
+  "variables": "Variables",
+  "variablesHint": "JSON variables (optional, sent as the variables field)",
+  "variablesPlaceholder": "｛\n  \"id\": 1\n｝",
+  "variablesInvalid": "Variables are not valid JSON",
+  "headersHint": "Key: Value (one per line, Content-Type: application/json injected by default)",
+  "send": "Send",
+  "timingsTitle": "Timings",
+  "dns": "DNS",
+  "tls": "TLS",
+  "connect": "Connect",
+  "ttfb": "TTFB",
+  "total": "Total",
+  "responseHeaders": "Response Headers",
+  "responseBody": "Response Body",
+  "noResponse": "No request sent yet"
+}

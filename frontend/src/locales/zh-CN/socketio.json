@@ -1,0 +1,16 @@
+{
+  "title": "Socket.IO",
+  "urlPlaceholder": "Socket.IO 服务端地址，例如 http://localhost:3000",
+  "path": "路径 (默认 /socket.io)",
+  "transports": "传输 (websocket,polling)",
+  "connect": "连接",
+  "disconnect": "断开",
+  "connected": "已连接",
+  "connecting": "连接中",
+  "connectFailed": "连接失败",
+  "emit": "发送",
+  "eventName": "事件名",
+  "payloadPlaceholder": "消息体 (JSON 或纯文本)",
+  "logs": "事件日志",
+  "noLogs": "暂无事件"
+}

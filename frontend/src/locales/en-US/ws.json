@@ -1,0 +1,16 @@
+{
+  "title": "WebSocket Debugger",
+  "urlPlaceholder": "Enter WS URL, e.g. wss://echo.websocket.org",
+  "subprotocol": "Subprotocol",
+  "connect": "Connect",
+  "disconnect": "Disconnect",
+  "message": "Message",
+  "send": "Send",
+  "received": "Received",
+  "sent": "Sent",
+  "frames": "Frames",
+  "noFrames": "No messages yet",
+  "binary": "Binary",
+  "connected": "Connected",
+  "disconnected": "Disconnected"
+}

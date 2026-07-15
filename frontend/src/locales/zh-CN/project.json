@@ -1,0 +1,23 @@
+{
+  "listTitle": "我的项目",
+  "newProject": "新建项目",
+  "newProjectTitle": "创建项目",
+  "createBtn": "创建",
+  "noProjects": "还没有项目，点击右上角新建一个吧",
+  "membersTitle": "项目成员",
+  "membersSearchPlaceholder": "输入成员名称搜索",
+  "addMember": "添加成员",
+  "role": "角色",
+  "owner": "项目管理员",
+  "maintainer": "维护者",
+  "developer": "接口调试员",
+  "permissions": "权限",
+  "addPerm": "新增",
+  "editPerm": "修改",
+  "deletePerm": "删除",
+  "manageMembers": "成员管理",
+  "deleteProject": "删除项目",
+  "removeMember": "移除成员",
+  "memberName": "成员 ID",
+  "noMembers": "还没有成员"
+}

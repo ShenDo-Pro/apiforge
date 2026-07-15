@@ -1,0 +1,26 @@
+# Binaries
+/bin/
+*.exe
+apiforge
+
+# Go
+backend/frontend/dist/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Local data
+*.db
+*.sqlite
+*.sqlite3
+/config.local.yaml
+
+# Logs
+*.log
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,23 @@
+{
+  "title": "GraphQL",
+  "urlPlaceholder": "GraphQL 端点 URL，例如 https://api.example.com/graphql",
+  "query": "查询",
+  "queryHint": "编写 GraphQL query / mutation",
+  "queryPlaceholder": "query ｛\n  __typename\n｝",
+  "queryRequired": "请填写 GraphQL 查询",
+  "variables": "变量",
+  "variablesHint": "JSON 变量（可空，将作为 variables 字段发送）",
+  "variablesPlaceholder": "｛\n  \"id\": 1\n｝",
+  "variablesInvalid": "变量不是合法 JSON",
+  "headersHint": "Key: Value（每行一条，默认注入 Content-Type: application/json）",
+  "send": "发送",
+  "timingsTitle": "耗时",
+  "dns": "DNS",
+  "tls": "TLS",
+  "connect": "连接",
+  "ttfb": "首字节",
+  "total": "总计",
+  "responseHeaders": "响应头",
+  "responseBody": "响应体",
+  "noResponse": "尚未发送请求"
+}

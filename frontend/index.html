@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Apiforge · 接口调试工作台</title>
+    <script>
+      // 首屏前同步主题，避免暗/亮切换闪烁；与 stores/theme.ts 保持一致（默认暗色）
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t !== "dark" && t !== "light") t = "dark";
+          var el = document.documentElement;
+          el.classList.remove("light", "dark");
+          el.classList.add(t);
+          el.style.colorScheme = t;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

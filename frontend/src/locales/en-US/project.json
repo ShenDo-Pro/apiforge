@@ -1,0 +1,23 @@
+{
+  "listTitle": "My Projects",
+  "newProject": "New Project",
+  "newProjectTitle": "Create Project",
+  "createBtn": "Create",
+  "noProjects": "No projects yet. Create one in the top-right.",
+  "membersTitle": "Project Members",
+  "membersSearchPlaceholder": "Search members by name",
+  "addMember": "Add Member",
+  "role": "Role",
+  "owner": "Owner",
+  "maintainer": "Maintainer",
+  "developer": "Developer",
+  "permissions": "Permissions",
+  "addPerm": "Add",
+  "editPerm": "Edit",
+  "deletePerm": "Delete",
+  "manageMembers": "Manage Members",
+  "deleteProject": "Delete Project",
+  "removeMember": "Remove Member",
+  "memberName": "User ID",
+  "noMembers": "No members yet"
+}

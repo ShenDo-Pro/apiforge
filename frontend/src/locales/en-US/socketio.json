@@ -1,0 +1,16 @@
+{
+  "title": "Socket.IO",
+  "urlPlaceholder": "Socket.IO server URL, e.g. http://localhost:3000",
+  "path": "Path (default /socket.io)",
+  "transports": "Transports (websocket,polling)",
+  "connect": "Connect",
+  "disconnect": "Disconnect",
+  "connected": "Connected",
+  "connecting": "Connecting",
+  "connectFailed": "Connect failed",
+  "emit": "Emit",
+  "eventName": "Event name",
+  "payloadPlaceholder": "Payload (JSON or plain text)",
+  "logs": "Event logs",
+  "noLogs": "No events"
+}
