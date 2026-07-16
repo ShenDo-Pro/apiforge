@@ -1,0 +1,12 @@
+{
+  "title": "审计日志",
+  "records": "条记录",
+  "time": "时间",
+  "user": "用户",
+  "method": "方法",
+  "path": "路径",
+  "status": "状态",
+  "noLogs": "暂无审计记录",
+  "prev": "上一页",
+  "next": "下一页"
+}

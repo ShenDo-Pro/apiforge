@@ -5,8 +5,8 @@ package model
 // Permissions 为 JSON：{"add":bool,"edit":bool,"delete":bool}，仅对 developer 生效。
 type ProjectMember struct {
 	ID          uint   `gorm:"primaryKey" json:"id"`
-	ProjectID   uint   `gorm:"index:idx_pm" json:"projectId"`
-	UserID      uint   `gorm:"index:idx_pm" json:"userId"`
+	ProjectID   uint   `gorm:"uniqueIndex:uniq_proj_member" json:"projectId"`
+	UserID      uint   `gorm:"uniqueIndex:uniq_proj_member" json:"userId"`
 	Role        string `gorm:"size:16;default:developer" json:"role"`
 	Permissions string `gorm:"type:text" json:"permissions"`
 }

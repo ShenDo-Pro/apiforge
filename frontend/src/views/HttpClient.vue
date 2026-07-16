@@ -676,14 +676,14 @@ async function onPick(collectionId: number, name: string) {
 
           <template v-else-if="reqTab === 'scripts'">
             <div class="mb-1 text-xs font-medium text-muted">{{ t("common.script.preRequest") }}</div>
-            <div class="mb-1 text-xs text-muted">{{ t("script.preHint") }}</div>
+            <div class="mb-1 text-xs text-muted">{{ t("common.script.preHint") }}</div>
             <ScriptEditor v-model="preScript" :placeholder="t('common.script.prePlaceholder')" :rows="8" />
             <div class="mb-1 mt-3 text-xs font-medium text-muted">{{ t("common.script.test") }}</div>
             <!-- 提取规则 -->
             <div class="mb-3 mt-2">
               <div class="mb-1 flex items-center justify-between text-xs text-muted">
-                <span>{{ t("script.extractTitle") }}</span>
-                <Button variant="ghost" size="sm" @click="addRule"><Plus :size="13" /> {{ t("script.addRule") }}</Button>
+                <span>{{ t("common.script.extractTitle") }}</span>
+                <Button variant="ghost" size="sm" @click="addRule"><Plus :size="13" /> {{ t("common.script.addRule") }}</Button>
               </div>
               <div
                 v-for="(r, i) in extractRules"
@@ -691,8 +691,8 @@ async function onPick(collectionId: number, name: string) {
                 class="mb-1.5 flex items-center gap-2"
               >
                 <Select v-model="r.source" class="w-24">
-                  <option value="body">{{ t("script.fromBody") }}</option>
-                  <option value="header">{{ t("script.fromHeader") }}</option>
+                  <option value="body">{{ t("common.script.fromBody") }}</option>
+                  <option value="header">{{ t("common.script.fromHeader") }}</option>
                 </Select>
                 <VarInput v-model="r.expr" :placeholder="r.source === 'header' ? 'Header-Name' : '$.token'" class="flex-1" />
                 <Select v-model="r.scope" class="w-28">
@@ -707,7 +707,7 @@ async function onPick(collectionId: number, name: string) {
               </div>
               <div v-if="extractRules.length === 0" class="text-xs text-muted/60">—</div>
             </div>
-            <div class="mb-1 text-xs text-muted">{{ t("script.testHint") }}</div>
+            <div class="mb-1 text-xs text-muted">{{ t("common.script.testHint") }}</div>
             <ScriptEditor v-model="testScript" :placeholder="t('common.script.testPlaceholder')" :rows="8" />
           </template>
 

@@ -1,9 +1,14 @@
 // 变量替换工具：支持 Postman 风格的 {{key}} 占位符。
 // 仅替换「已提供值」的变量，未匹配到的 {{key}} 原样保留，方便请求里继续写模板。
 
-const TOKEN_RE = /\{\{\s*([\w.\-$]+)\s*\}\}/g;
-
 import type { EnvVar } from "@/types/project";
+
+// 每次使用都返回独立正则实例（带 g 标志的正则共享 lastIndex 有状态，
+// 多调用点混用易踩坑）。resolveTemplate 走 replace、extractTokens 走 exec 循环，
+// 各自用独立实例互不干扰（L13）。
+function tokenRegex(): RegExp {
+  return /\{\{\s*([\w.:$-]+)\s*\}\}/g;
+}
 
 // 将后端返回的 JSON 字符串解析为 EnvVar[]，解析失败回退空数组。
 export function parseEnvVars(values: string | undefined | null): EnvVar[] {
@@ -18,7 +23,7 @@ export function parseEnvVars(values: string | undefined | null): EnvVar[] {
 
 export function resolveTemplate(text: string, vars: Record<string, string>): string {
   if (!text) return text;
-  return text.replace(TOKEN_RE, (_, key: string) => {
+  return text.replace(tokenRegex(), (_, key: string) => {
     // 动态变量（以 $ 开头）优先于普通变量计算
     if (key.startsWith("$")) {
       const dv = dynamicValue(key);
@@ -72,8 +77,8 @@ function makeUUID(): string {
 export function extractTokens(text: string): string[] {
   const out = new Set<string>();
   let m: RegExpExecArray | null;
-  TOKEN_RE.lastIndex = 0;
-  while ((m = TOKEN_RE.exec(text))) out.add(m[1]);
+  const re = tokenRegex();
+  while ((m = re.exec(text))) out.add(m[1]);
   return [...out];
 }
 

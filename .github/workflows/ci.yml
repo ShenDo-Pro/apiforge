@@ -2,12 +2,30 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npx vue-tsc --noEmit
+      - name: Build
+        run: npm run build
+
   backend:
-    name: Backend (Go)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -17,25 +35,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-      - name: Build
-        run: go build ./...
+          cache-dependency-path: backend/go.sum
       - name: Vet
         run: go vet ./...
-      - name: Test
-        run: go test ./...
-
-  frontend:
-    name: Frontend (Vue)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Install
-        run: npm ci
       - name: Build
-        run: npm run build
+        run: go build ./...

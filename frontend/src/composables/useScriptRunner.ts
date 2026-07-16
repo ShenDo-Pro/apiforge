@@ -234,9 +234,20 @@ export async function runUserScript(
     warn: (...a: unknown[]) => logs.push("[warn] " + a.map(String).join(" ")),
   };
   try {
-    // 用户在自有浏览器运行脚本，捕获异常不阻断主流程；await 等待脚本内异步完成
-    const fn = new Function("pm", "console", `return (async () => {\n${code}\n})();`);
-    await fn(pm, consoleProxy);
+    // 沙箱：将可触达凭证/DOM 的全局标识符遮蔽为 undefined，并启用严格模式，
+    // 阻断脚本经 window/document/localStorage/globalThis 窃取 access_token（H8 缓解）。
+    // 完整隔离（Web Worker / iframe）是彻底方案，此处为低成本、可降级的有界缓解。
+    const blocked = [
+      "window", "document", "localStorage", "sessionStorage", "indexedDB",
+      "globalThis", "self", "top", "parent", "frames", "opener",
+      "fetch", "XMLHttpRequest", "WebSocket", "EventSource", "importScripts",
+      "Function", "eval", "setTimeout", "setInterval", "queueMicrotask",
+    ];
+    const fn = new Function(
+      "pm", "console", ...blocked,
+      `"use strict";\nreturn (async () => {\n${code}\n})();`
+    );
+    await fn(pm, consoleProxy, ...blocked.map(() => undefined));
     return { logs, assertions: (pm.__assertions as Assertion[]) || [] };
   } catch (e) {
     return { logs, error: (e as Error).message, assertions: [] };

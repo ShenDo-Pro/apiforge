@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useToast } from "@/composables/useToast";
+import { resetPassword } from "@/api/auth";
 import Button from "@/components/ui/Button.vue";
 import Input from "@/components/ui/Input.vue";
 import { Terminal } from "lucide-vue-next";
@@ -18,20 +19,49 @@ const username = ref("");
 const password = ref("");
 const loading = ref(false);
 
+// 首次登录强制改密（H6）：登录成功后若后端标记 needReset，弹出改密框，
+// 改密完成才放行进入系统。
+const forcingReset = ref(false);
+const oldPwd = ref("");
+const newPwd = ref("");
+const resetLoading = ref(false);
+
 async function submit() {
   if (!username.value) return toast.error(t("auth.usernameRequired"));
   if (!password.value) return toast.error(t("auth.passwordRequired"));
   loading.value = true;
   try {
     await auth.login(username.value, password.value);
-    toast.success(t("auth.loginSuccess"));
-    router.push((route.query.redirect as string) || "/projects");
+    if (auth.user?.needReset) {
+      forcingReset.value = true;
+      oldPwd.value = password.value; // 首次改密时旧口令即本次登录口令
+      return;
+    }
+    enter();
   } catch (e: any) {
     const msg = e?.response?.data?.message;
     toast.error(msg === "invalid username or password" ? t("auth.invalidCred") : t("common.error"));
   } finally {
     loading.value = false;
   }
+}
+
+async function doReset() {
+  if (newPwd.value.length < 8) return toast.error(t("auth.pwdTooShort"));
+  resetLoading.value = true;
+  try {
+    await resetPassword(oldPwd.value, newPwd.value);
+    toast.success(t("auth.pwdChanged"));
+    enter();
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || t("common.error"));
+  } finally {
+    resetLoading.value = false;
+  }
+}
+
+function enter() {
+  router.push((route.query.redirect as string) || "/projects");
 }
 </script>
 
@@ -46,7 +76,20 @@ async function submit() {
         <p class="mt-1 text-sm text-muted">{{ t("auth.subtitle") }}</p>
       </div>
 
-      <form class="space-y-4 rounded-xl border border-border bg-surface p-6" @submit.prevent="submit">
+      <!-- 首次强制改密 -->
+      <form v-if="forcingReset" class="space-y-4 rounded-xl border border-border bg-surface p-6" @submit.prevent="doReset">
+        <p class="text-sm text-foreground">{{ t("auth.forceResetHint") }}</p>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-muted">{{ t("auth.newPassword") }}</label>
+          <Input v-model="newPwd" type="password" autocomplete="new-password" :placeholder="t('auth.newPassword')" />
+        </div>
+        <Button type="submit" class="w-full" :disabled="resetLoading">
+          {{ resetLoading ? t("auth.changing") : t("auth.confirmChange") }}
+        </Button>
+      </form>
+
+      <!-- 普通登录 -->
+      <form v-else class="space-y-4 rounded-xl border border-border bg-surface p-6" @submit.prevent="submit">
         <div>
           <label class="mb-1 block text-xs font-medium text-muted">{{ t("auth.username") }}</label>
           <Input v-model="username" autocomplete="username" :placeholder="t('auth.username')" />

@@ -1,12 +1,8 @@
 package relay
 
 import (
-	"io"
 	"net"
-	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 // MQTTHandler 通过后端建立一条到 MQTT Broker 的 TCP 长连接（默认 1883），
@@ -31,53 +27,7 @@ func (MQTTHandler) Serve(c Conn, target Target) {
 	defer remote.Close()
 	defer c.Close()
 
-	relayStreamSilent(c, remote)
-}
-
-// relayStreamSilent 与 relayStream 行为一致，但远端关闭/出错时不发送文本控制帧，
-// 仅关闭 WS，交由上层（mqtt.js）感知连接断开，避免干扰 MQTT 报文解析。
-func relayStreamSilent(c Conn, remote net.Conn) {
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	// 前端 -> Broker（MQTT 报文以 WS 二进制帧透传）
-	go func() {
-		defer wg.Done()
-		for {
-			mt, data, err := c.ReadMessage()
-			if err != nil {
-				remote.Close()
-				return
-			}
-			if mt == websocket.TextMessage {
-				// 文本帧为控制帧，当前忽略
-				continue
-			}
-			if _, err := remote.Write(data); err != nil {
-				return
-			}
-		}
-	}()
-
-	// Broker -> 前端（TCP 字节以 WS 二进制帧推送）
-	go func() {
-		defer wg.Done()
-		buf := make([]byte, 64*1024)
-		for {
-			n, err := remote.Read(buf)
-			if n > 0 {
-				if werr := c.WriteMessage(websocket.BinaryMessage, buf[:n]); werr != nil {
-					return
-				}
-			}
-			if err != nil {
-				if err != io.EOF {
-					writeCtrl(c, CtrlError, err.Error())
-				}
-				return
-			}
-		}
-	}()
-
-	wg.Wait()
+	// silent=true：MQTT 报文以 WS 二进制帧透传，远端关闭时不发送文本控制帧，
+	// 仅关闭 WS 交由上层（mqtt.js）感知断开，避免干扰 MQTT 报文解析（M23 合并后）。
+	relayStream(c, remote, true)
 }

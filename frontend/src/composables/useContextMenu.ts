@@ -44,6 +44,8 @@ export function useContextMenu(key: string, menuEl: Ref<HTMLElement | null>) {
     window.removeEventListener("click", onDocPointer, true);
     window.removeEventListener("contextmenu", onDocPointer, true);
     window.removeEventListener("keydown", onKey, true);
+    // 组件卸载时若本节点菜单正打开，清掉全局单例状态，避免残留「某菜单已开」影响后续（L20）
+    if (activeKey.value === key) activeKey.value = null;
   });
 
   return { isOpen, open, close };

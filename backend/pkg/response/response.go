@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -28,4 +29,13 @@ func OK(w http.ResponseWriter, data interface{}) {
 // Fail 失败响应，调用方自行决定 HTTP 状态码。
 func Fail(w http.ResponseWriter, status int, code int, message string) {
 	JSON(w, status, code, message, nil)
+}
+
+// FailSafe 用于 5xx 等不应向客户端泄露内部细节的场景：记录真实错误到日志，
+// 但只向前端返回安全的通用文案，避免暴露数据库结构/堆栈（M6）。
+func FailSafe(w http.ResponseWriter, status, code int, safeMsg string, err error) {
+	if err != nil {
+		slog.Error("request failed", "err", err)
+	}
+	JSON(w, status, code, safeMsg, nil)
 }

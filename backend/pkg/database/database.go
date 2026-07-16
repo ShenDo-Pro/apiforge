@@ -2,6 +2,8 @@ package database
 
 import (
 	"apiforge/backend/internal/model"
+	"crypto/rand"
+	"encoding/hex"
 	"log/slog"
 	"os"
 
@@ -42,6 +44,7 @@ func Migrate(db *gorm.DB) error {
 		&model.PipelineStep{},
 		&model.PipelineRun{},
 		&model.PipelineStepResult{},
+		&model.AuditLog{},
 	)
 }
 
@@ -55,6 +58,8 @@ func dirOf(dsn string) string {
 }
 
 // SeedAdmin 在库无用户时写入默认管理员，方便首次启动登录。
+// 密码为空时生成随机强口令并记录到日志（不再硬编码弱口令 admin123），
+// 强烈建议部署时通过 APIFORGE_ADMIN_PASSWORD 环境变量指定（H6）。
 func SeedAdmin(db *gorm.DB, username, password string) {
 	var count int64
 	if err := db.Model(&model.User{}).Count(&count).Error; err != nil {
@@ -64,7 +69,16 @@ func SeedAdmin(db *gorm.DB, username, password string) {
 	if count > 0 {
 		return
 	}
-	u := &model.User{Username: username, Role: "admin"}
+	if password == "" {
+		b := make([]byte, 16)
+		if _, err := rand.Read(b); err != nil {
+			slog.Error("生成随机管理员密码失败", "err", err)
+			return
+		}
+		password = hex.EncodeToString(b)
+		slog.Warn("已创建默认管理员，未设置 APIFORGE_ADMIN_PASSWORD，临时密码见下，请尽快通过界面修改", "username", username, "password", password)
+	}
+	u := &model.User{Username: username, Role: "admin", NeedReset: true}
 	if err := u.SetPassword(password); err != nil {
 		slog.Error("设置默认管理员密码失败", "err", err)
 		return

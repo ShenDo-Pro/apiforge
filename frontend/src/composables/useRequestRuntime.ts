@@ -45,6 +45,9 @@ export function useRequestRuntime(
 
   // 准备：合并变量替换 + 运行预请求脚本（可改写请求、写变量）
   async function prepare(req: RuntimeRequest): Promise<RuntimeRequest> {
+    // 请求级局部变量（pm.variables.set 写入）仅在该请求生命周期内有效，
+    // 每次发送前清空，避免跨请求污染（M26）
+    envStore.clearLocalVars();
     const vars = envStore.mergedVars;
     const resolved: RuntimeRequest = {
       url: resolveTemplate(req.url, vars),

@@ -9,7 +9,7 @@ type Pipeline struct {
 	ProjectID    uint            `gorm:"index" json:"projectId"`
 	Name         string          `gorm:"size:256" json:"name"`
 	Description  string          `gorm:"size:512" json:"description"`
-	WebhookToken string          `gorm:"size:64;index" json:"-"`
+	WebhookToken string          `gorm:"size:64;uniqueIndex" json:"-"`
 	CreatedAt    time.Time       `json:"createdAt"`
 	UpdatedAt    time.Time       `json:"updatedAt"`
 	Steps        []PipelineStep  `json:"steps,omitempty"`

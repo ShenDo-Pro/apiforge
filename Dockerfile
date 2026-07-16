@@ -2,7 +2,7 @@
 FROM node:20-alpine AS frontend
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
 # vite 将产物输出到 ../backend/frontend/dist（即 /app/backend/frontend/dist）
 RUN mkdir -p /app/backend/frontend && npm run build

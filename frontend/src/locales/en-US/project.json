@@ -19,5 +19,8 @@
   "deleteProject": "Delete Project",
   "removeMember": "Remove Member",
   "memberName": "User ID",
-  "noMembers": "No members yet"
+  "noMembers": "No members yet",
+  "renameProject": "Rename Project",
+  "confirmDeleteProject": "Delete this project? This action is irreversible and removes all collections and requests under it.",
+  "editRole": "Edit Member Role"
 }

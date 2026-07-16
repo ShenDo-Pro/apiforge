@@ -15,8 +15,8 @@ type EnvVar struct {
 // Kind 区分普通环境与全局变量单例：global 每项目仅一行。
 type Environment struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
-	ProjectID uint   `gorm:"index" json:"projectId"`
-	Kind      string `gorm:"size:8" json:"kind"` // "env" | "global"
+	ProjectID uint   `gorm:"index:idx_env_proj_kind,priority:1" json:"projectId"`
+	Kind      string `gorm:"size:8;index:idx_env_proj_kind,priority:2" json:"kind"` // "env" | "global"
 	Name      string `gorm:"size:256" json:"name"`
 	Values    string `gorm:"type:text" json:"values"` // JSON: []EnvVar
 	SortOrder int    `json:"sortOrder"`

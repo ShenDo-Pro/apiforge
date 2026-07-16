@@ -46,6 +46,34 @@ func (s *ProjectService) ListForUser(userID uint) ([]model.Project, error) {
 	return projects, err
 }
 
+// Page 是分页结果信封（M15）。
+type Page[T any] struct {
+	Items  []T `json:"items"`
+	Total  int64 `json:"total"`
+	Page   int  `json:"page"`
+	PerPage int `json:"perPage"`
+}
+
+// ListForUserPaginated 返回分页后的用户可见项目（M15）。
+func (s *ProjectService) ListForUserPaginated(userID uint, page, perPage int) (Page[model.Project], error) {
+	var total int64
+	base := s.db.Model(&model.Project{}).
+		Where("owner_id = ?", userID).
+		Or("id IN (?)", s.db.Model(&model.ProjectMember{}).Select("project_id").Where("user_id = ?", userID))
+	if err := base.Count(&total).Error; err != nil {
+		return Page[model.Project]{}, err
+	}
+	var items []model.Project
+	if err := base.
+		Order("created_at desc").
+		Limit(perPage).
+		Offset((page - 1) * perPage).
+		Find(&items).Error; err != nil {
+		return Page[model.Project]{}, err
+	}
+	return Page[model.Project]{Items: items, Total: total, Page: page, PerPage: perPage}, nil
+}
+
 func (s *ProjectService) Get(id uint) (*model.Project, error) {
 	var p model.Project
 	if err := s.db.First(&p, id).Error; err != nil {
@@ -60,9 +88,40 @@ func (s *ProjectService) Update(id uint, name, description string) error {
 }
 
 func (s *ProjectService) Delete(id uint) error {
-	// 级联删除成员与集合，保持数据整洁
+	// 级联删除项目下所有数据，避免遗留孤儿（M7）：
+	// 成员、集合（含其下 SavedRequest/RequestHistory）、环境、流水线（含步骤/运行/结果）。
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("project_id = ?", id).Delete(&model.ProjectMember{}).Error; err != nil {
+			return err
+		}
+		// 先删请求历史与保存请求（SavedRequest 通过集合归属本项目，用子查询定位）
+		if err := tx.Where("saved_request_id IN (?)",
+			tx.Model(&model.SavedRequest{}).
+				Joins("JOIN collections ON collections.id = saved_requests.collection_id").
+				Where("collections.project_id = ?", id).Select("saved_requests.id")).
+			Delete(&model.RequestHistory{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("collection_id IN (?)",
+			tx.Model(&model.Collection{}).Where("project_id = ?", id).Select("id")).
+			Delete(&model.SavedRequest{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ?", id).Delete(&model.Environment{}).Error; err != nil {
+			return err
+		}
+		// 流水线及其步骤/运行/逐步结果
+		if err := tx.Where("pipeline_id IN (?)",
+			tx.Model(&model.Pipeline{}).Where("project_id = ?", id).Select("id")).
+			Delete(&model.PipelineStepResult{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("pipeline_id IN (?)",
+			tx.Model(&model.Pipeline{}).Where("project_id = ?", id).Select("id")).
+			Delete(&model.PipelineRun{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ?", id).Delete(&model.Pipeline{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("project_id = ?", id).Delete(&model.Collection{}).Error; err != nil {
@@ -94,6 +153,21 @@ func (s *ProjectService) ListMembers(projectID uint) ([]MemberView, error) {
 	return ms, err
 }
 
+// GetMyMembership 返回当前用户在指定项目中的成员记录；非成员返回 ErrNotFound。
+func (s *ProjectService) GetMyMembership(projectID, userID uint) (*MemberView, error) {
+	var m MemberView
+	err := s.db.
+		Table("project_members").
+		Select("project_members.id, project_members.user_id, project_members.role, project_members.permissions, users.username as username").
+		Joins("left join users on users.id = project_members.user_id").
+		Where("project_members.project_id = ? AND project_members.user_id = ?", projectID, userID).
+		First(&m).Error
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
 // AddMember 邀请用户加入项目并设定角色与权限。
 func (s *ProjectService) AddMember(projectID, userID uint, role string, perms map[string]bool) error {
 	if role == "" {
@@ -109,9 +183,11 @@ func (s *ProjectService) AddMember(projectID, userID uint, role string, perms ma
 		Role:        role,
 		Permissions: string(permJSON),
 	}
-	// 重复加入则忽略，避免唯一冲突
+	// 重复加入则忽略，避免唯一冲突；计数错误不再被吞掉（M4）
 	var cnt int64
-	s.db.Model(&model.ProjectMember{}).Where("project_id = ? AND user_id = ?", projectID, userID).Count(&cnt)
+	if err := s.db.Model(&model.ProjectMember{}).Where("project_id = ? AND user_id = ?", projectID, userID).Count(&cnt).Error; err != nil {
+		return err
+	}
 	if cnt > 0 {
 		return errors.New("member already exists")
 	}

@@ -5,7 +5,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { i18n, setLocale } from "@/locales";
-import { LogOut, Globe, Terminal, Sun, Moon } from "lucide-vue-next";
+import { LogOut, Globe, Terminal, Sun, Moon, User as UserIcon } from "lucide-vue-next";
 import Button from "@/components/ui/Button.vue";
 
 const { t } = useI18n();
@@ -70,6 +70,12 @@ function logout() {
           class="absolute right-0 mt-2 w-40 rounded-lg border border-border glass p-1 shadow-glow animate-fade-in-up"
           @mouseleave="menuOpen = false"
         >
+          <button
+            class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted hover:bg-border/30 hover:text-foreground"
+            @click="router.push('/account'); menuOpen = false"
+          >
+            <UserIcon :size="15" /> {{ t("account.title") }}
+          </button>
           <button
             class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted hover:bg-border/30 hover:text-foreground"
             @click="logout"

@@ -36,10 +36,11 @@ func writeStatus(c Conn, local, remote string) {
 	_ = c.WriteMessage(websocket.TextMessage, b)
 }
 
-// relayStream 在一个已建立的后端 socket 与 WS 之间做双向透传。
+// relayStream 在一个已建立的后端 socket 与 WS 之间做双向透传（M23：合并原 relayStream / relayStreamSilent）。
 // 前端 -> 远端：WS 二进制帧直接写入 socket；文本控制帧（如心跳/关闭）忽略。
-// 远端 -> 前端：socket 读取到的字节以 WS 二进制帧推送，并在远端关闭时通知前端。
-func relayStream(c Conn, remote net.Conn) {
+// 远端 -> 前端：socket 读取到的字节以 WS 二进制帧推送。
+// silent=true 时远端关闭/出错不发送文本控制帧（MQTT 场景，避免干扰报文解析），否则发送 error/closed 控制帧。
+func relayStream(c Conn, remote net.Conn, silent bool) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -75,10 +76,12 @@ func relayStream(c Conn, remote net.Conn) {
 				}
 			}
 			if err != nil {
-				if err != io.EOF {
-					writeCtrl(c, CtrlError, err.Error())
-				} else {
-					writeCtrl(c, CtrlClosed, "")
+				if !silent {
+					if err != io.EOF {
+						writeCtrl(c, CtrlError, err.Error())
+					} else {
+						writeCtrl(c, CtrlClosed, "")
+					}
 				}
 				return
 			}

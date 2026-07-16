@@ -19,5 +19,10 @@
   "total": "总计",
   "responseHeaders": "响应头",
   "responseBody": "响应体",
-  "noResponse": "尚未发送请求"
+  "noResponse": "尚未发送请求",
+  "loadSchema": "加载 Schema",
+  "schema": "Schema",
+  "schemaLoading": "正在加载 Schema…",
+  "noSchema": "未获取到 Schema（该端点可能未启用 introspection）",
+  "responseTab": "响应"
 }

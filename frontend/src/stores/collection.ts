@@ -28,9 +28,6 @@ export const useCollectionStore = defineStore("collection", {
       );
       return this.requestsByCollection[collectionId];
     },
-    async refreshRequests(projectId: number, collectionId: number) {
-      return this.fetchRequests(projectId, collectionId);
-    },
     async createCollection(
       projectId: number,
       payload: { parentId?: number | null; name: string },

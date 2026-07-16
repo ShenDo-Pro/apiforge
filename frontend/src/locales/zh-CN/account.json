@@ -1,0 +1,19 @@
+{
+  "title": "账户",
+  "subtitle": "管理你的登录账户",
+  "profile": "账户信息",
+  "username": "用户名",
+  "role": "角色",
+  "roleAdmin": "管理员",
+  "roleUser": "普通用户",
+  "createdAt": "创建时间",
+  "changePassword": "修改密码",
+  "changePasswordHint": "出于安全考虑，建议定期更换密码。",
+  "oldPassword": "当前密码",
+  "newPassword": "新密码",
+  "confirmPassword": "确认新密码",
+  "passwordMismatch": "两次输入的新密码不一致",
+  "passwordTooShort": "新密码至少 8 位",
+  "changeSuccess": "密码已修改",
+  "changeFailed": "修改失败"
+}

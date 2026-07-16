@@ -134,8 +134,8 @@ async function savePipeline() {
     });
     toast.success(t("pipeline.saved"));
     await loadPipelines();
-  } catch (e) {
-    toast.error(String(e));
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || e?.message || String(e));
   } finally {
     loading.value = false;
   }
@@ -149,8 +149,8 @@ async function runNow() {
     selectedRun.value = run;
     await loadRuns();
     toast.success(run.status === "passed" ? t("pipeline.passed") : t("pipeline.failed"));
-  } catch (e) {
-    toast.error(String(e));
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || e?.message || String(e));
   } finally {
     running.value = false;
   }

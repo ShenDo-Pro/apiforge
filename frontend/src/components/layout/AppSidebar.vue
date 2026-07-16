@@ -12,9 +12,12 @@ import {
   ArrowLeft,
   Layers,
   Upload,
+  ShieldCheck,
+  Database,
 } from "lucide-vue-next";
 import { useProjectStore } from "@/stores/project";
 import { useCollectionStore } from "@/stores/collection";
+import { useAuthStore } from "@/stores/auth";
 import { useToast } from "@/composables/useToast";
 import { createCollection, saveRequest } from "@/api/collection";
 import { fromPostman } from "@/composables/usePostmanCollection";
@@ -26,13 +29,14 @@ const emit = defineEmits<{
   (e: "new-request"): void;
   (e: "new-folder", parentId: number | null): void;
   (e: "edit-vars", node: unknown): void;
-  (e: "open-view", view: "members" | "pipeline" | "settings" | "environments"): void;
+  (e: "open-view", view: "members" | "pipeline" | "settings" | "environments" | "audit" | "backup"): void;
 }>();
 
 const { t } = useI18n();
 const router = useRouter();
 const project = useProjectStore();
 const collectionStore = useCollectionStore();
+const auth = useAuthStore();
 const toast = useToast();
 
 // 导入 Postman v2.1：选文件后解析为导入计划，先建根集合再按 DFS 顺序递归建文件夹与请求。
@@ -214,6 +218,19 @@ function emptyCreateRequest() {
         @click="emit('open-view', 'pipeline')"
       >
         <Workflow :size="16" /> {{ t("common.navPipeline") }}
+      </button>
+      <button
+        v-if="auth.user?.role === 'admin'"
+        class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-border/30 hover:text-foreground"
+        @click="emit('open-view', 'audit')"
+      >
+        <ShieldCheck :size="16" /> {{ t("audit.title") }}
+      </button>
+      <button
+        class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-border/30 hover:text-foreground"
+        @click="emit('open-view', 'backup')"
+      >
+        <Database :size="16" /> {{ t("common.backup") }}
       </button>
       <button
         class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-border/30 hover:text-foreground"

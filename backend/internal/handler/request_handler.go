@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -35,10 +36,15 @@ type requestSaveReq struct {
 
 // ListByCollection 返回集合下全部保存请求。
 func (h *RequestHandler) ListByCollection(w http.ResponseWriter, r *http.Request) {
+	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	cid, _ := strconv.ParseUint(server.Param(r, "collectionID"), 10, 64)
-	rs, err := h.svc.ListByCollection(uint(cid))
+	rs, err := h.svc.ListByCollection(uint(pid), uint(cid))
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		if errors.Is(err, service.ErrForbidden) {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, rs)
@@ -49,7 +55,7 @@ func (h *RequestHandler) ListAllByProject(w http.ResponseWriter, r *http.Request
 	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	rs, err := h.svc.ListAllByProject(uint(pid))
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, rs)
@@ -57,15 +63,20 @@ func (h *RequestHandler) ListAllByProject(w http.ResponseWriter, r *http.Request
 
 // Save 在集合下新增一条保存请求。
 func (h *RequestHandler) Save(w http.ResponseWriter, r *http.Request) {
+	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	cid, _ := strconv.ParseUint(server.Param(r, "collectionID"), 10, 64)
 	var in requestSaveReq
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.URL == "" {
 		response.Fail(w, http.StatusBadRequest, 400, "url required")
 		return
 	}
-	req, err := h.svc.Save(uint(cid), in.Protocol, in.Name, in.Method, in.URL, in.Headers, in.Body, in.PreRequestScript, in.TestScript, in.ExtractRules, in.Auth)
+	req, err := h.svc.Save(uint(pid), uint(cid), in.Protocol, in.Name, in.Method, in.URL, in.Headers, in.Body, in.PreRequestScript, in.TestScript, in.ExtractRules, in.Auth)
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		if errors.Is(err, service.ErrForbidden) {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, req)
@@ -74,8 +85,13 @@ func (h *RequestHandler) Save(w http.ResponseWriter, r *http.Request) {
 // Get 获取单条保存请求。
 func (h *RequestHandler) Get(w http.ResponseWriter, r *http.Request) {
 	rid, _ := strconv.ParseUint(server.Param(r, "requestID"), 10, 64)
-	req, err := h.svc.Get(uint(rid))
+	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
+	req, err := h.svc.Get(uint(rid), uint(pid))
 	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
 		response.Fail(w, http.StatusNotFound, 404, "request not found")
 		return
 	}
@@ -85,13 +101,18 @@ func (h *RequestHandler) Get(w http.ResponseWriter, r *http.Request) {
 // Update 修改保存请求内容。
 func (h *RequestHandler) Update(w http.ResponseWriter, r *http.Request) {
 	rid, _ := strconv.ParseUint(server.Param(r, "requestID"), 10, 64)
+	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	var in requestSaveReq
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		response.Fail(w, http.StatusBadRequest, 400, "invalid body")
 		return
 	}
-	if err := h.svc.Update(uint(rid), in.Protocol, in.Name, in.Method, in.URL, in.Headers, in.Body, in.PreRequestScript, in.TestScript, in.ExtractRules, in.Auth); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+	if err := h.svc.Update(uint(rid), uint(pid), in.Protocol, in.Name, in.Method, in.URL, in.Headers, in.Body, in.PreRequestScript, in.TestScript, in.ExtractRules, in.Auth); err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, nil)
@@ -100,8 +121,13 @@ func (h *RequestHandler) Update(w http.ResponseWriter, r *http.Request) {
 // Delete 删除保存请求及其历史。
 func (h *RequestHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	rid, _ := strconv.ParseUint(server.Param(r, "requestID"), 10, 64)
-	if err := h.svc.Delete(uint(rid)); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
+	if err := h.svc.Delete(uint(rid), uint(pid)); err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, nil)
@@ -119,6 +145,7 @@ type historyReq struct {
 
 // AddHistory 追加一条发送历史（由前端在代理返回后调用）。
 func (h *RequestHandler) AddHistory(w http.ResponseWriter, r *http.Request) {
+	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	rid, _ := strconv.ParseUint(server.Param(r, "requestID"), 10, 64)
 	var in historyReq
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -134,8 +161,12 @@ func (h *RequestHandler) AddHistory(w http.ResponseWriter, r *http.Request) {
 		ResponseBody:    in.ResponseBody,
 		Timings:         in.Timings,
 	}
-	if err := h.svc.AddHistory(uint(rid), h2); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+	if err := h.svc.AddHistory(uint(rid), uint(pid), h2); err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, h2)
@@ -143,10 +174,15 @@ func (h *RequestHandler) AddHistory(w http.ResponseWriter, r *http.Request) {
 
 // ListHistory 返回请求的历史快照。
 func (h *RequestHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
+	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	rid, _ := strconv.ParseUint(server.Param(r, "requestID"), 10, 64)
-	hs, err := h.svc.ListHistory(uint(rid))
+	hs, err := h.svc.ListHistory(uint(rid), uint(pid))
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		if errors.Is(err, service.ErrForbidden) {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, hs)

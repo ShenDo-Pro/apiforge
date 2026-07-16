@@ -79,11 +79,13 @@ function connect() {
   socket = io(vr.resolve(url.value), {
     path: vr.resolve(path.value) || undefined,
     transports: vr.resolve(transports.value) ? vr.resolve(transports.value).split(",") : undefined,
+    // 连接超时上限，避免目标不可达时无限期挂起（M32 一致性）
+    timeout: 20000,
   });
   socket.on("connect", () => {
     connected.value = true;
     connecting.value = false;
-    toast.success(t("common.connected"));
+    toast.success(t("socketio.connected"));
   });
   socket.on("connect_error", (e) => {
     connecting.value = false;

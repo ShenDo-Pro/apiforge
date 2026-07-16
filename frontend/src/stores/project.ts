@@ -6,6 +6,7 @@ import {
   updateProject,
   addMember,
   removeMember,
+  updateMember,
 } from "@/api/project";
 import type { Project, ProjectMember } from "@/types/project";
 
@@ -15,10 +16,17 @@ export const useProjectStore = defineStore("project", {
     projects: [] as Project[],
     current: null as Project | null,
     members: [] as ProjectMember[],
+    total: 0,
+    page: 1,
+    perPage: 200,
   }),
   actions: {
-    async fetchProjects() {
-      this.projects = await listProjects();
+    async fetchProjects(page = 1, perPage = 200) {
+      const p = await listProjects(page, perPage);
+      this.projects = p.items;
+      this.total = p.total;
+      this.page = p.page;
+      this.perPage = p.perPage;
     },
     setCurrent(p: Project) {
       this.current = p;
@@ -50,6 +58,15 @@ export const useProjectStore = defineStore("project", {
     },
     async removeMember(projectId: number, userId: number) {
       await removeMember(projectId, userId);
+      await this.fetchMembers(projectId);
+    },
+    async updateMember(
+      projectId: number,
+      userId: number,
+      role: string,
+      permissions: Record<string, boolean>
+    ) {
+      await updateMember(projectId, userId, role, permissions);
       await this.fetchMembers(projectId);
     },
   },

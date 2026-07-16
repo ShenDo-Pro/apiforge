@@ -1,25 +1,36 @@
 # Apiforge
 
+> Self-hosted, multi-protocol API client — one Go binary, no cloud lock-in.
+
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-[![CI](https://github.com/your-org/apiforge/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
+[![CI](https://github.com/ShenDo-Pro/apiforge/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 
-A web-based API client. The backend is Go (GORM / JWT) and serves the built
-frontend; the frontend is Vue 3 + Vite. It supports several protocols,
-per-project member permissions, saved request collections, dark/light themes
-and a Chinese/English UI.
+> 📖 Chinese version: [README.zh-CN.md](README.zh-CN.md)
 
-## Features
+**Apiforge** is an open-source API client you run on your own server. A single
+Go binary serves the entire Vue 3 web UI, so your requests, tokens and API
+keys never leave your infrastructure.
 
-- Protocol clients: HTTP / HTTP2, WebSocket, MQTT, GraphQL, Socket.IO, gRPC,
-  and TCP / UDP relay.
-- Collaboration: system `admin`, project `owner` and `developer` roles; project
-  members get fine-grained `add / edit / delete` permissions.
-- Request collections: nestable folders and saved requests, organized per project.
-- Themes and language: dark / light and Chinese / English, persisted to
-  `localStorage`.
-- Databases: SQLite by default, switchable to PostgreSQL / MySQL.
+Unlike most API clients, it isn't limited to REST & GraphQL — it also speaks
+**MQTT, Socket.IO, gRPC and raw TCP / UDP**, which makes it usable for IoT and
+message-broker debugging. Teams get per-project roles and permissions; everyone
+gets saved collections, dark mode and a Chinese / English interface.
 
-Planned: MCP and AI endpoint debugging.
+## Why Apiforge
+
+- **Self-hosted & single-binary** — no account, no telemetry, no vendor cloud.
+- **Multi-protocol in one tool** — HTTP / HTTP2, WebSocket, MQTT, Socket.IO,
+  GraphQL, gRPC, and TCP / UDP relay.
+- **Team-ready** — system `admin` and project `owner` / `maintainer` / `developer`
+  with fine-grained `add` / `edit` / `delete` permissions.
+- **Bilingual & themed** — dark / light and 中文 / English, persisted locally.
+- **Portable storage** — SQLite by default, switch to PostgreSQL / MySQL anytime.
+
+Planned: MCP and AI / LLM endpoint debugging.
+
+## Screenshot
+
+![Apiforge — multi-protocol API client](docs/screenshot.png)
 
 ## Tech stack
 
@@ -97,7 +108,7 @@ The table below lists each phase's goals and current status.
 | --- | --- | --- |
 | Phase 1 · Core request protocols | HTTP / HTTP2, WebSocket, MQTT | Done |
 | Phase 2 · Realtime & messaging protocols | Socket.IO, TCP / UDP relay | Done |
-| Phase 3 · Structured & RPC protocols | GraphQL, gRPC | Done |
+| Phase 3 · Structured & RPC protocols | GraphQL, gRPC | Partial |
 | Phase 4 · Collaboration & engineering | Member roles & permissions, request collections, themes & i18n, multi-database | Done |
 | Phase 5 · Planned | MCP debugging client, AI / LLM endpoint debugging | Planned |
 
@@ -107,7 +118,8 @@ Covers the most common request-response and long-lived connection scenarios:
 
 - **HTTP / HTTP2**: request building, params, headers, body, environments and
   auth.
-- **WebSocket**: connection management, message exchange and frame inspection.
+- **WebSocket**: connection management, message exchange and a basic frame log
+  (direction, opcode, size).
 - **MQTT**: publish / subscribe, QoS and topic management.
 
 ### Phase 2 · Realtime & messaging protocols (Done)
@@ -138,6 +150,23 @@ Covers the most common request-response and long-lived connection scenarios:
 - **AI / LLM endpoint debugging**: request building, streaming responses and
   debugging for large language models.
 
+### Deployment notes
+
+- **Non-root-path deployment**: the frontend is a SPA. If hosted under a sub-path (e.g.
+  `/apiforge/`), set `base: "/apiforge/"` in `vite.config.ts` and rebuild with `npm run build`;
+  the backend `SpaHandler` static directory and fallback route must match that prefix.
+- **Enforce HTTPS in production**: terminate TLS at a reverse proxy (Nginx / Caddy / LB) and set
+  `proxy.require_https: true` in `config.yaml` (or `APIFORGE_REQUIRE_HTTPS=true`). Once enabled,
+  the relay (`/ws/relay`) handshake is forced over TLS to prevent WebSocket / Socket.IO tokens
+  passed via the query string from leaking over an unencrypted channel (L1).
+- **Admin credentials**: on first launch you can override the default admin with
+  `APIFORGE_ADMIN_USERNAME` / `APIFORGE_ADMIN_PASSWORD` (default username `admin`); when
+  `APIFORGE_ADMIN_PASSWORD` is unset a random strong password is generated and warned in the logs
+  (no more hardcoded weak password). Regardless of source, the default admin is flagged "must change
+  password on first login" and is forced to the reset screen after logging in (H6). Strongly
+  recommend setting the password via environment variable at deploy time and changing it
+  immediately after the first login.
+
 ### Future plans
 
 The following capabilities are planned but not yet implemented:
@@ -154,6 +183,32 @@ The following capabilities are planned but not yet implemented:
 - **Environment scope expansion**: a global environment scope and
   collection-level auth inheritance.
 - **Response comparison**: response diff and "save as example".
+
+## Security audit follow-ups (known tech debt)
+
+Reviewed from `bug.md` (see also `bug_rep.md`). Legend: **✅ Resolved** / **🔵 Still recommended / retained**.
+
+> Of the original 70 items, two batches were already fixed (H1–H4/H7, M1/M3/M4/M6/M7/M9/M10/M11/M12/M14/M16/M17/M18/M19 and frontend M26–M31/M33/L9/L10/L16, etc.). This table lists only the items that remain open.
+
+### Security hardening
+
+| Source | Item | Status | Notes |
+| --- | --- | --- | --- |
+| H8 | Frontend scripts lack a real sandbox | 🔵 | Mitigated: shadow `window`/`localStorage`/`Function`/`eval` and other dangerous globals + strict mode; full Worker/iframe isolation left as a dedicated task |
+
+### Refactor / maintainability
+
+| Source | Item | Status | Notes |
+| --- | --- | --- | --- |
+| H9 | 8 protocol views copy-pasted | 🔵 | Still recommended as a separate PR: extract a "protocol registry + `useSavedRequest`" (already extracted `useRequestSaver` for shared save logic) |
+| L6 | Monolithic `main.go` | 🔵 | Still recommended as a separate PR: split route DI (currently runs fine) |
+| L8 | Frontend `any` abuse | 🔵 | Type-polish item, not a defect, deferred |
+
+### Engineering / deploy docs
+
+| Source | Item | Status | Notes |
+| --- | --- | --- | --- |
+| M15 | List endpoints lack pagination | ✅ (partial) | Project list is paginated (backend `page`/`perPage` + frontend pager); collection/request list pagination deferred |
 
 ## License
 

@@ -10,7 +10,7 @@ import Input from "@/components/ui/Input.vue";
 import Textarea from "@/components/ui/Textarea.vue";
 import Tabs from "@/components/ui/Tabs.vue";
 import Badge from "@/components/ui/Badge.vue";
-import { Play, Hexagon, Clock } from "lucide-vue-next";
+import { Play, Hexagon, Clock, BookOpen } from "lucide-vue-next";
 import type { SavedRequest } from "@/types/project";
 import RequestSaver from "@/components/project/RequestSaver.vue";
 import { type RequestPayload } from "@/composables/useRequestSaver";
@@ -126,6 +126,10 @@ async function send() {
       headers,
       body: JSON.stringify(payload),
       forceHttp2: false,
+      // 与其他协议客户端对齐：显式透传超时/重定向/TLS 校验（M32）
+      timeoutMs: 30000,
+      followRedirect: true,
+      sslVerify: true,
     });
     response.value = res;
   } catch (e: any) {
@@ -133,6 +137,117 @@ async function send() {
   } finally {
     loading.value = false;
   }
+}
+
+// A1 · GraphQL Schema exploration：通过 introspection 拉取并浏览 schema。
+const schema = ref<any>(null);
+const schemaLoading = ref(false);
+const schemaError = ref("");
+const viewTab = ref<"response" | "schema">("response");
+const expanded = ref<Record<string, boolean>>({});
+
+// 标准 introspection 查询（含递归 type 引用，供前端解析类型树）
+const INTROSPECTION_QUERY = `query IntrospectionQuery {
+  __schema {
+    queryType { name }
+    mutationType { name }
+    subscriptionType { name }
+    types {
+      kind
+      name
+      description
+      fields(includeDeprecated: true) {
+        name
+        description
+        args { name type { name kind ofType { name kind ofType { name kind } } } }
+        type { name kind ofType { name kind ofType { name kind } } }
+      }
+      inputFields { name type { name kind ofType { name kind } } }
+      enumValues { name description }
+    }
+  }
+}`;
+
+// 将递归 type 引用渲染为可读字符串，如 [User!]!
+function typeRefToString(type: any): string {
+  if (!type) return "";
+  const inner = type.name || "";
+  if (type.ofType) {
+    const child = typeRefToString(type.ofType);
+    if (type.kind === "LIST") return `[${child}]`;
+    if (type.kind === "NON_NULL") return `${child}!`;
+    return child;
+  }
+  return inner;
+}
+
+const kindTone: Record<string, string> = {
+  OBJECT: "primary",
+  INPUT_OBJECT: "info",
+  ENUM: "warning",
+  SCALAR: "success",
+  INTERFACE: "default",
+  UNION: "default",
+};
+
+// 过滤掉 GraphQL 内部类型（__ 前缀），按名称排序，便于浏览
+const visibleTypes = computed(() => {
+  if (!schema.value?.types) return [];
+  return schema.value.types
+    .filter((tp: any) => tp.name && !tp.name.startsWith("__"))
+    .sort((a: any, b: any) => a.name.localeCompare(b.name));
+});
+
+function toggleType(name: string) {
+  expanded.value[name] = !expanded.value[name];
+}
+
+// 模板内联箭头不支持类型注解，抽取为函数（A1 schema 字段参数/枚举渲染）
+function argsToString(args: any[]): string {
+  if (!args || !args.length) return "";
+  return args.map((a) => `${a.name}: ${typeRefToString(a.type)}`).join(", ");
+}
+function enumToString(values: any[]): string {
+  if (!values || !values.length) return "";
+  return values.map((e) => e.name).join(" | ");
+}
+
+async function loadSchema() {
+  if (!url.value) return toast.error(t("common.url"));
+  schemaLoading.value = true;
+  schemaError.value = "";
+  try {
+    const res = await proxySend({
+      method: "POST",
+      url: vr.resolve(url.value),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: INTROSPECTION_QUERY }),
+      forceHttp2: false,
+      timeoutMs: 30000,
+      followRedirect: true,
+      sslVerify: true,
+    });
+    if (res.error) {
+      schemaError.value = res.error;
+      return;
+    }
+    const json = JSON.parse(res.body || "{}");
+    if (json.errors && json.errors.length) {
+      schemaError.value = json.errors.map((e: any) => e.message).join("; ");
+      return;
+    }
+    schema.value = json.data?.__schema || null;
+    if (!schema.value) schemaError.value = t("graphql.noSchema");
+  } catch (e: any) {
+    schemaError.value = e?.response?.data?.message || t("common.error");
+  } finally {
+    schemaLoading.value = false;
+  }
+}
+
+async function loadSchemaAndShow() {
+  await loadSchema();
+  viewTab.value = "schema";
 }
 </script>
 
@@ -144,6 +259,9 @@ async function send() {
         <Input v-model="url" :placeholder="t('graphql.urlPlaceholder')" class="flex-1" @keyup.enter="send" />
         <Button :disabled="loading" @click="send">
           <Play :size="15" /> {{ t("graphql.send") }}
+        </Button>
+        <Button :disabled="schemaLoading" variant="ghost" @click="loadSchemaAndShow">
+          <BookOpen :size="15" /> {{ t("graphql.loadSchema") }}
         </Button>
         <RequestSaver
           :project-id="projectId"
@@ -183,45 +301,87 @@ async function send() {
         </div>
       </Card>
 
-      <!-- 响应 -->
+      <!-- 响应 / Schema 浏览（A1） -->
       <Card class="flex flex-col overflow-hidden">
-        <div class="flex items-center gap-3 border-b border-border px-3 py-2">
-          <Badge v-if="response" :tone="statusTone">{{ response.status }}</Badge>
-          <Badge v-if="response" tone="primary">{{ response.proto }}</Badge>
-          <span v-if="response?.error" class="text-xs text-danger">{{ response.error }}</span>
-          <span v-if="!response" class="text-xs text-muted">—</span>
+        <div class="flex items-center gap-2 border-b border-border px-3 py-2">
+          <button
+            class="rounded px-2 py-0.5 text-xs"
+            :class="viewTab === 'response' ? 'bg-surface text-foreground' : 'text-muted hover:text-foreground'"
+            @click="viewTab = 'response'"
+          >{{ t("graphql.responseTab") }}</button>
+          <button
+            class="rounded px-2 py-0.5 text-xs"
+            :class="viewTab === 'schema' ? 'bg-surface text-foreground' : 'text-muted hover:text-foreground'"
+            @click="loadSchemaAndShow"
+          >{{ t("graphql.schema") }}</button>
+          <template v-if="viewTab === 'response'">
+            <Badge v-if="response" :tone="statusTone">{{ response.status }}</Badge>
+            <Badge v-if="response" tone="primary">{{ response.proto }}</Badge>
+            <span v-if="response?.error" class="text-xs text-danger">{{ response.error }}</span>
+          </template>
+          <span v-else-if="!schema && !schemaLoading && !schemaError" class="text-xs text-muted">—</span>
         </div>
 
-        <div v-if="response" class="flex-1 overflow-y-auto scroll-thin p-3 space-y-3">
-          <div>
-            <div class="mb-1 flex items-center gap-1 text-xs text-muted">
-              <Clock :size="13" />{{ t("graphql.timingsTitle") }}
-            </div>
-            <div class="space-y-1">
-              <div v-for="k in timingKeys" :key="k" class="flex items-center gap-2 text-xs">
-                <span class="w-14 text-muted">{{ t("graphql." + k) }}</span>
-                <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-border/40">
-                  <div
-                    class="h-full rounded-full bg-gradient-to-r from-primary to-primary-3"
-                    :style="{ width: (response.timings[k] / maxTiming) * 100 + '%' }"
-                  />
+        <div v-if="viewTab === 'response'" class="flex-1 overflow-y-auto scroll-thin p-3 space-y-3">
+          <template v-if="response">
+            <div>
+              <div class="mb-1 flex items-center gap-1 text-xs text-muted">
+                <Clock :size="13" />{{ t("graphql.timingsTitle") }}
+              </div>
+              <div class="space-y-1">
+                <div v-for="k in timingKeys" :key="k" class="flex items-center gap-2 text-xs">
+                  <span class="w-14 text-muted">{{ t("graphql." + k) }}</span>
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-border/40">
+                    <div
+                      class="h-full rounded-full bg-gradient-to-r from-primary to-primary-3"
+                      :style="{ width: (response.timings[k] / maxTiming) * 100 + '%' }"
+                    />
+                  </div>
+                  <span class="w-14 text-right text-foreground">{{ response.timings[k] }}ms</span>
                 </div>
-                <span class="w-14 text-right text-foreground">{{ response.timings[k] }}ms</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="mb-1 text-xs font-medium text-muted">{{ t("graphql.responseHeaders") }}</div>
+              <pre class="rounded-lg bg-surface p-2 text-xs text-foreground">{{ JSON.stringify(response.headers, null, 2) }}</pre>
+            </div>
+            <div>
+              <div class="mb-1 text-xs font-medium text-muted">{{ t("graphql.responseBody") }}</div>
+              <pre class="max-h-72 overflow-auto scroll-thin rounded-lg bg-surface p-2 text-xs text-foreground">{{ response.body }}</pre>
+            </div>
+          </template>
+          <div v-else class="flex flex-1 items-center justify-center text-xs text-muted/60">
+            {{ t("graphql.noResponse") }}
+          </div>
+        </div>
+
+        <div v-else-if="viewTab === 'schema'" class="flex-1 overflow-y-auto scroll-thin p-3">
+          <div v-if="schemaLoading" class="text-xs text-muted">{{ t("graphql.schemaLoading") }}</div>
+          <div v-else-if="schemaError" class="text-xs text-danger">{{ schemaError }}</div>
+          <div v-else-if="!schema" class="text-xs text-muted">{{ t("graphql.noSchema") }}</div>
+          <div v-else class="space-y-1">
+            <div v-for="tp in visibleTypes" :key="tp.name" class="rounded border border-border/60">
+              <button class="flex w-full items-center gap-2 px-2 py-1 text-left hover:bg-surface/60" @click="toggleType(tp.name)">
+                <span class="w-3 text-muted">{{ expanded[tp.name] ? '▾' : '▸' }}</span>
+                <Badge :tone="(kindTone[tp.kind] || 'default') as any">{{ tp.kind }}</Badge>
+                <span class="font-medium text-foreground">{{ tp.name }}</span>
+              </button>
+              <div v-if="expanded[tp.name]" class="space-y-1 border-t border-border/40 px-3 py-2 text-xs">
+                <div v-if="tp.fields && tp.fields.length" class="space-y-0.5">
+                  <div v-for="f in tp.fields" :key="f.name" class="flex flex-wrap gap-x-2 gap-y-0.5">
+                    <span class="text-primary">{{ f.name }}</span>
+                    <span class="text-muted">: {{ typeRefToString(f.type) }}</span>
+                    <span v-if="f.args && f.args.length" class="text-muted/70">({{ argsToString(f.args) }})</span>
+                  </div>
+                </div>
+                <div v-else-if="tp.enumValues && tp.enumValues.length" class="text-muted">
+                  {{ enumToString(tp.enumValues) }}
+                </div>
+                <div v-else class="text-muted/60">—</div>
               </div>
             </div>
           </div>
-
-          <div>
-            <div class="mb-1 text-xs font-medium text-muted">{{ t("graphql.responseHeaders") }}</div>
-            <pre class="rounded-lg bg-surface p-2 text-xs text-foreground">{{ JSON.stringify(response.headers, null, 2) }}</pre>
-          </div>
-          <div>
-            <div class="mb-1 text-xs font-medium text-muted">{{ t("graphql.responseBody") }}</div>
-            <pre class="max-h-72 overflow-auto scroll-thin rounded-lg bg-surface p-2 text-xs text-foreground">{{ response.body }}</pre>
-          </div>
-        </div>
-        <div v-else class="flex flex-1 items-center justify-center text-xs text-muted/60">
-          {{ t("graphql.noResponse") }}
         </div>
       </Card>
     </div>

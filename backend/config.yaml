@@ -6,8 +6,10 @@ server:
   public_url: ""
 
 # JWT 配置
+# 警告：生产部署必须通过环境变量 APIFORGE_JWT_SECRET 注入强随机密钥。
+# 此处留空，未设置环境变量时启动将拒绝使用公开串签发票（H2）。
 jwt:
-  secret: "change-me-in-production-please-use-env-APIFORGE_JWT_SECRET"
+  secret: ""
   access_ttl_minutes: 15
   refresh_ttl_hours: 168
 
@@ -21,6 +23,17 @@ database:
 proxy:
   # 单次响应体上限（字节），防止大响应撑爆内存
   max_body_bytes: 10485760
+  # 是否允许代理/中继访问私有/内网地址（SSRF 防护）。默认 false（禁止）。
+  allow_private_targets: false
+  # 是否允许客户端跳过 TLS 证书校验。默认 false（即默认校验证书）。
+  skip_tls_verify: false
+  # 代理/请求默认超时（毫秒），避免无限挂起。
+  default_timeout_ms: 30000
+  # 是否强制中继/WS 握手走 HTTPS。默认 false；生产建议设为 true，
+  # 避免 token 经 query 在非加密信道泄露（L1）。也可经 APIFORGE_REQUIRE_HTTPS=true 注入。
+  require_https: false
+  # 中继（/ws/relay）并发连接上限，0 表示不限制（默认 512）。防止大量长连接压垮实例（M24）。
+  max_conns: 512
 
 # CORS 白名单（开发期前端可能跑在其它端口）
 cors:

@@ -28,17 +28,25 @@ export interface AuthConfig {
   varName?: string; // 取到的 token 写入的本地变量名，默认 oauth_access_token
 }
 
-export interface AuthResult {
+export interface ResolvedAuth {
   headers: Record<string, string>;
   query: Record<string, string>;
+}
+
+// 将任意 Unicode 字符串安全编码为 Base64（btoa 仅支持 Latin1，中文/emoji 会抛错）（L10）
+function utf8ToBase64(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  let bin = "";
+  bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  return btoa(bin);
 }
 
 // OAuth2 token 内存缓存：避免每次请求都打 token 端点（含过期判断）。
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 // 解析鉴权配置为实际请求头 / 查询参数。OAuth2 为异步（需向 tokenUrl 申请）。
-export async function resolveAuth(auth?: AuthConfig | null): Promise<AuthResult> {
-  const empty: AuthResult = { headers: {}, query: {} };
+export async function resolveAuth(auth?: AuthConfig | null): Promise<ResolvedAuth> {
+  const empty: ResolvedAuth = { headers: {}, query: {} };
   if (!auth || auth.type === "none") return empty;
 
   const envStore = useEnvironmentStore();
@@ -50,7 +58,7 @@ export async function resolveAuth(auth?: AuthConfig | null): Promise<AuthResult>
       return { headers: { Authorization: `Bearer ${r(auth.token)}` }, query: {} };
     case "basic": {
       const up = `${r(auth.username)}:${r(auth.password)}`;
-      return { headers: { Authorization: `Basic ${btoa(up)}` }, query: {} };
+      return { headers: { Authorization: `Basic ${utf8ToBase64(up)}` }, query: {} };
     }
     case "apikey": {
       const name = r(auth.keyName);
@@ -65,7 +73,7 @@ export async function resolveAuth(auth?: AuthConfig | null): Promise<AuthResult>
   }
 }
 
-async function resolveOAuth2(auth: AuthConfig): Promise<AuthResult> {
+async function resolveOAuth2(auth: AuthConfig): Promise<ResolvedAuth> {
   const varName = auth.varName || "oauth_access_token";
   const cached = tokenCache.get(varName);
   let token = cached && cached.expiresAt > Date.now() ? cached.token : "";

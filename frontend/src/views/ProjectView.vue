@@ -17,6 +17,8 @@ import SocketIOClient from "@/views/SocketIOClient.vue";
 import GrpcClient from "@/views/GrpcClient.vue";
 import PipelineView from "@/views/PipelineView.vue";
 import EnvironmentsView from "@/views/EnvironmentsView.vue";
+import AuditLogView from "@/views/AuditLogView.vue";
+import BackupView from "@/views/BackupView.vue";
 import Dialog from "@/components/ui/Dialog.vue";
 import Input from "@/components/ui/Input.vue";
 import Button from "@/components/ui/Button.vue";
@@ -48,7 +50,7 @@ const selectedRequest = ref<SavedRequest | null>(null);
 const draftCollectionId = ref<number | null>(null);
 const draftName = ref("");
 // 主区域视图：编辑器 / 成员 / 流水线 / 设置 / 环境
-const view = ref<"editor" | "members" | "pipeline" | "settings" | "environments">("editor");
+const view = ref<"editor" | "members" | "pipeline" | "settings" | "environments" | "audit" | "backup">("editor");
 
 const newRequestOpen = ref(false);
 const folderOpen = ref(false);
@@ -202,7 +204,6 @@ function onEditVars(node: Collection) {
             :default-name="draftName"
             @saved="(r) => (selectedRequest = r)"
           />
-          <div v-else class="p-6 text-sm text-muted">{{ t("common.comingSoon") }}</div>
         </template>
 
         <!-- 成员 -->
@@ -213,6 +214,8 @@ function onEditVars(node: Collection) {
         <SettingsView v-else-if="view === 'settings'" :project-id="projectId" />
         <!-- 环境整页 -->
         <EnvironmentsView v-else-if="view === 'environments'" :project-id="projectId" />
+        <AuditLogView v-else-if="view === 'audit'" :project-id="projectId" />
+        <BackupView v-else-if="view === 'backup'" :project-id="projectId" />
       </main>
     </div>
 

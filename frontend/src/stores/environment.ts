@@ -10,7 +10,10 @@ import {
 import { parseEnvVars } from "@/lib/vars";
 import type { EnvVar, Environment, EnvScope } from "@/types/project";
 
-const ACTIVE_KEY = "apiforge:activeEnv";
+// 活动环境选择态按项目隔离，避免切换项目时串用其它项目的活动环境（M27）
+function activeKeyFor(projectId: number | null): string {
+  return projectId != null ? `apiforge:activeEnv:${projectId}` : "apiforge:activeEnv";
+}
 
 // 环境变量 store：服务端持久化（跟项目走、多人共享），活动环境选择态留本地。
 // 多层作用域合并：Local > Environment > Collection > Global。
@@ -24,7 +27,8 @@ export interface VarSuggestion {
 export const useEnvironmentStore = defineStore("environment", {
   state: () => ({
     environments: [] as Environment[], // 含 kind="global" 单例
-    activeId: localStorage.getItem(ACTIVE_KEY) || null,
+    projectId: null as number | null,
+    activeId: null,
     // 请求级变量（脚本/提取写回），仅内存，不落库
     localVars: {} as Record<string, string>,
     // 当前打开请求所属集合的变量（由 ProjectView 注入），已扁平化
@@ -109,20 +113,19 @@ export const useEnvironmentStore = defineStore("environment", {
   },
   actions: {
     async fetchEnvironments(projectId: number) {
+      this.projectId = projectId;
       this.environments = await listEnvironments(projectId);
-      // 校验活动环境仍存在
-      if (this.activeId && !this.environments.some((e) => String(e.id) === this.activeId)) {
-        this.activeId = null;
-      }
+      // 按当前项目读取活动环境，校验其仍存在
+      const saved = localStorage.getItem(activeKeyFor(projectId));
+      this.activeId =
+        saved && this.environments.some((e) => String(e.id) === saved) ? saved : null;
       this.loaded = true;
     },
     setActive(id: number | null) {
       this.activeId = id === null ? null : String(id);
-      if (this.activeId) localStorage.setItem(ACTIVE_KEY, this.activeId);
-      else localStorage.removeItem(ACTIVE_KEY);
-    },
-    setActiveCollectionVars(vars: Record<string, string>) {
-      this.activeCollectionVars = vars;
+      const key = activeKeyFor(this.projectId);
+      if (this.activeId) localStorage.setItem(key, this.activeId);
+      else localStorage.removeItem(key);
     },
     // 注入当前集合的变量（递归父集合叠加），供合并与集合变量写回定位。
     setActiveCollection(collectionId: number | null, vars: Record<string, string>) {

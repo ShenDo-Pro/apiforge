@@ -19,7 +19,7 @@ func (WSHandler) Serve(c Conn, target Target) {
 	if target.Subprotocol != "" {
 		dialer.Subprotocols = []string{target.Subprotocol}
 	}
-	if target.Insecure {
+	if target.Insecure && skipTLSVerify {
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	header := http.Header{}

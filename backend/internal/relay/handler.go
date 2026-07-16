@@ -3,10 +3,35 @@ package relay
 import (
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 
+	"apiforge/backend/internal/netutil"
 	"apiforge/backend/pkg/response"
 	"github.com/gorilla/websocket"
 )
+
+// 安全配置由 main 在启动时注入（见 Configure）。
+var (
+	allowPrivateTargets bool
+	skipTLSVerify       bool
+	maxMessageSize      int64 = 16 << 20 // 16MB
+	requireHTTPS        bool
+	maxRelayConns       int64 = 512
+	relayConns          int64 // 当前活跃中继连接数（M24）
+)
+
+// Configure 注入中继全局安全配置（SSRF/TLS/消息上限/HTTPS 强制/并发上限）。
+func Configure(allowPrivate bool, skipTLS bool, maxMsg int64, requireHttps bool, maxConns int64) {
+	allowPrivateTargets = allowPrivate
+	skipTLSVerify = skipTLS
+	if maxMsg > 0 {
+		maxMessageSize = maxMsg
+	}
+	requireHTTPS = requireHttps
+	if maxConns > 0 {
+		maxRelayConns = maxConns
+	}
+}
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
@@ -54,6 +79,32 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// SSRF 防护：默认禁止访问私有/内网/云元数据地址（H4）
+	if !allowPrivateTargets {
+		var vErr error
+		if proto == "ws" || proto == "socketio" {
+			vErr = netutil.ValidateOutboundURL(target.URL, false)
+		} else {
+			vErr = netutil.ValidateHostPort(target.Host, target.Port, false)
+		}
+		if vErr != nil {
+			response.Fail(w, http.StatusForbidden, 403, "target blocked: "+vErr.Error())
+			return
+		}
+	}
+
+	// 强制 HTTPS：生产环境开启后，中继握手必须走 TLS，避免 token（经 query）在非加密信道泄露（L1）
+	if requireHTTPS && r.TLS == nil {
+		response.Fail(w, http.StatusForbidden, 403, "HTTPS required for relay")
+		return
+	}
+
+	// 并发连接上限：超过则拒绝新握手，防止单一实例被大量长连接压垮（M24）
+	if maxRelayConns > 0 && atomic.LoadInt64(&relayConns) >= maxRelayConns {
+		response.Fail(w, http.StatusTooManyRequests, 429, "relay connection limit reached")
+		return
+	}
+
 	h, ok := Get(proto)
 	if !ok {
 		// 未注册协议：返回占位信息，便于前端明确当前能力边界
@@ -65,6 +116,11 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	conn.SetReadLimit(maxMessageSize)
+	atomic.AddInt64(&relayConns, 1)
+	defer func() {
+		atomic.AddInt64(&relayConns, -1)
+		conn.Close()
+	}()
 	h.Serve(WSConn{conn}, target)
 }

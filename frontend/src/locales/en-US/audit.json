@@ -1,0 +1,12 @@
+{
+  "title": "Audit Log",
+  "records": "records",
+  "time": "Time",
+  "user": "User",
+  "method": "Method",
+  "path": "Path",
+  "status": "Status",
+  "noLogs": "No audit records yet",
+  "prev": "Prev",
+  "next": "Next"
+}

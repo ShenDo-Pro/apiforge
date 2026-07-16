@@ -20,6 +20,18 @@ const (
 	PermManageMembers = "manage_members" // 成员管理
 )
 
+// RequireAuth 仅校验请求已携带有效 JWT（用户已登录），用于无需项目级权限的接口，
+// 例如「创建项目」这种尚未涉及 projectID 的入口（M1）。
+func RequireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ContextUser(r) == nil {
+			response.Fail(w, http.StatusUnauthorized, 401, "unauthorized")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // RequireProjectPerm 校验当前登录用户对 :projectID 项目是否拥有指定权限。
 // 授权顺序：系统管理员 > 项目创建者 > 成员 owner > maintainer(受限) > developer(按 JSON 细粒度)。
 func RequireProjectPerm(perm string, db *gorm.DB) func(http.Handler) http.Handler {
@@ -78,4 +90,16 @@ func RequireProjectPerm(perm string, db *gorm.DB) func(http.Handler) http.Handle
 			response.Fail(w, http.StatusForbidden, 403, "permission denied")
 		})
 	}
+}
+
+// RequireAdmin 仅允许系统管理员访问（用于审计日志等全局管理接口）。
+func RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c := ContextUser(r)
+		if c == nil || c.Role != "admin" {
+			response.Fail(w, http.StatusForbidden, 403, "forbidden")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

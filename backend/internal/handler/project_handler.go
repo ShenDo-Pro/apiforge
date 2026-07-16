@@ -35,18 +35,37 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.svc.Create(claims.UserID, in.Name, in.Description)
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, p)
 }
 
-// List 返回当前用户可见项目。
+// List 返回当前用户可见项目。支持分页（page/perPage 查询参数，M15）；
+// 未提供分页参数时返回完整数组以保持向后兼容。
 func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ContextUser(r)
+	q := r.URL.Query()
+	page, _ := strconv.Atoi(q.Get("page"))
+	perPage, _ := strconv.Atoi(q.Get("perPage"))
+	if page <= 0 {
+		page = 1
+	}
+	if perPage <= 0 {
+		perPage = 0
+	}
+	if perPage > 0 {
+		res, err := h.svc.ListForUserPaginated(claims.UserID, page, perPage)
+		if err != nil {
+			response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
+			return
+		}
+		response.OK(w, res)
+		return
+	}
 	ps, err := h.svc.ListForUser(claims.UserID)
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, ps)
@@ -77,7 +96,7 @@ func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.Update(uint(id), in.Name, in.Description); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, nil)
@@ -87,7 +106,7 @@ func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	if err := h.svc.Delete(uint(id)); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, nil)
@@ -98,10 +117,26 @@ func (h *ProjectHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	ms, err := h.svc.ListMembers(uint(id))
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, ms)
+}
+
+// MyMembership 返回当前登录用户在项目中的成员记录，非成员返回 404（供前端成员级守卫，L18）。
+func (h *ProjectHandler) MyMembership(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
+	claims := middleware.ContextUser(r)
+	if claims == nil {
+		response.Fail(w, http.StatusUnauthorized, 401, "unauthorized")
+		return
+	}
+	m, err := h.svc.GetMyMembership(uint(id), claims.UserID)
+	if err != nil {
+		response.Fail(w, http.StatusNotFound, 404, "not a member")
+		return
+	}
+	response.OK(w, m)
 }
 
 type memberReq struct {
@@ -134,7 +169,7 @@ func (h *ProjectHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.UpdateMember(uint(id), in.UserID, in.Role, in.Perms); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, nil)
@@ -145,7 +180,7 @@ func (h *ProjectHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	uid, _ := strconv.ParseUint(server.Param(r, "userID"), 10, 64)
 	if err := h.svc.RemoveMember(uint(id), uint(uid)); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, nil)

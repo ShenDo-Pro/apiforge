@@ -2,14 +2,46 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"apiforge/backend/internal/model"
 	"apiforge/backend/internal/server"
 	"apiforge/backend/internal/service"
 	"apiforge/backend/pkg/response"
 )
+
+// webhookLimit 对免鉴权的 Webhook 触发做简单的滑动窗口限流，防止被滥用耗尽资源（M13）。
+// 每个 token 每分钟最多 20 次触发。
+var (
+	webhookMu       sync.Mutex
+	webhookHits     = map[string][]time.Time{}
+	webhookMaxPerMin = 20
+)
+
+func webhookAllowed(token string) bool {
+	webhookMu.Lock()
+	defer webhookMu.Unlock()
+	now := time.Now()
+	hits := webhookHits[token]
+	// 仅保留最近一分钟内的记录
+	recent := hits[:0]
+	for _, t := range hits {
+		if now.Sub(t) < time.Minute {
+			recent = append(recent, t)
+		}
+	}
+	if len(recent) >= webhookMaxPerMin {
+		webhookHits[token] = recent
+		return false
+	}
+	recent = append(recent, now)
+	webhookHits[token] = recent
+	return true
+}
 
 // PipelineHandler 暴露流水线 REST 与 Webhook 触发端点。
 type PipelineHandler struct {
@@ -27,7 +59,7 @@ func (h *PipelineHandler) List(w http.ResponseWriter, r *http.Request) {
 	pid, _ := strconv.ParseUint(server.Param(r, "projectID"), 10, 64)
 	ps, err := h.svc.List(uint(pid))
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, ps)
@@ -48,7 +80,7 @@ func (h *PipelineHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.svc.Create(uint(pid), service.PipelineCreateReq{Name: in.Name, Description: in.Description})
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, h.withWebhookURL(p))
@@ -75,7 +107,7 @@ func (h *PipelineHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.svc.Update(uint(id), in)
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, h.withWebhookURL(p))
@@ -85,7 +117,7 @@ func (h *PipelineHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *PipelineHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(server.Param(r, "pipelineID"), 10, 64)
 	if err := h.svc.Delete(uint(id)); err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, nil)
@@ -96,7 +128,7 @@ func (h *PipelineHandler) RegenerateToken(w http.ResponseWriter, r *http.Request
 	id, _ := strconv.ParseUint(server.Param(r, "pipelineID"), 10, 64)
 	token, err := h.svc.RegenerateToken(uint(id))
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, map[string]string{"webhookToken": token, "webhookURL": h.buildURL(token)})
@@ -107,7 +139,7 @@ func (h *PipelineHandler) Run(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(server.Param(r, "pipelineID"), 10, 64)
 	run, err := h.svc.Run(uint(id), "manual")
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, run)
@@ -118,7 +150,7 @@ func (h *PipelineHandler) ListRuns(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseUint(server.Param(r, "pipelineID"), 10, 64)
 	runs, err := h.svc.ListRuns(uint(id))
 	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
+		response.FailSafe(w, http.StatusInternalServerError, 500, "internal error", err)
 		return
 	}
 	response.OK(w, runs)
@@ -136,23 +168,30 @@ func (h *PipelineHandler) GetRun(w http.ResponseWriter, r *http.Request) {
 }
 
 // Webhook 免鉴权触发端点：按 token 定位流水线并运行。
+// 为避免慢流水线长时间占用 HTTP 连接，运行放到 goroutine 异步执行，
+// 接口立即返回 202（M13）。运行错误由 service 层经 slog 记录，不再阻塞响应。
 func (h *PipelineHandler) Webhook(w http.ResponseWriter, r *http.Request) {
 	token := server.Param(r, "token")
+	// 免鉴权端点：先做限流，避免被滥用耗尽资源（M13）
+	if !webhookAllowed(token) {
+		response.Fail(w, http.StatusTooManyRequests, 429, "too many requests")
+		return
+	}
 	p, err := h.svc.FindByToken(token)
 	if err != nil {
 		response.Fail(w, http.StatusNotFound, 404, "invalid webhook token")
 		return
 	}
-	run, err := h.svc.Run(p.ID, "webhook")
-	if err != nil {
-		response.Fail(w, http.StatusInternalServerError, 500, err.Error())
-		return
-	}
-	response.OK(w, map[string]interface{}{
-		"runId":      run.ID,
-		"pipelineId": p.ID,
-		"status":     run.Status,
-		"summary":    run.Summary,
+	pid := p.ID
+	go func() {
+		if _, e := h.svc.Run(pid, "webhook"); e != nil {
+			// 异步运行错误不回传客户端，仅记录（Run 内部已 slog）
+			slog.Warn("webhook pipeline run failed", "pipelineID", pid, "err", e)
+		}
+	}()
+	response.JSON(w, http.StatusAccepted, 0, "accepted", map[string]interface{}{
+		"pipelineId": pid,
+		"status":     "queued",
 	})
 }
 

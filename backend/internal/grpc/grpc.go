@@ -11,6 +11,8 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"apiforge/backend/internal/netutil"
 )
 
 var upgrader = websocket.Upgrader{
@@ -64,6 +66,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	conn.SetReadLimit(16 << 20)
 	defer conn.Close()
 
 	var gc *grpc.ClientConn
@@ -84,6 +87,11 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		case "connect":
 			if gc != nil {
 				_ = gc.Close()
+			}
+			// SSRF 防护：默认禁止访问私有/内网/云元数据地址（H4）
+			if vErr := netutil.ValidateOutboundURL(m.Target, false); vErr != nil {
+				writeErr(conn, "target blocked: "+vErr.Error())
+				continue
 			}
 			g, e := grpc.NewClient(m.Target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if e != nil {

@@ -29,6 +29,8 @@ const working = ref<EnvVar[]>([]);
 watch(
   selected,
   (s) => {
+    // 切换环境时取消上一个尚未触发的持久化，避免把旧环境的 working 落到新环境（L17）
+    clearTimeout(timer);
     working.value = s ? parseEnvVars(s.values).map((v) => ({ ...v })) : [];
   },
   { immediate: true }
@@ -41,11 +43,15 @@ onMounted(() => {
 // 防抖持久化（避免每次按键都打接口）
 let timer: any = null;
 function schedulePersist() {
-  if (!selected.value) return;
+  const target = selected.value;
+  if (!target) return;
+  const targetId = target.id;
   clearTimeout(timer);
   timer = setTimeout(() => {
-    const s = selected.value!;
-    envStore.persistEnvironment(s.id, s.name, working.value);
+    // 若 400ms 内切换了环境，丢弃本次过期写入（L17 防抖竞态）
+    const cur = selected.value;
+    if (!cur || cur.id !== targetId) return;
+    envStore.persistEnvironment(cur.id, cur.name, working.value);
   }, 400);
 }
 

@@ -19,5 +19,10 @@
   "total": "Total",
   "responseHeaders": "Response Headers",
   "responseBody": "Response Body",
-  "noResponse": "No request sent yet"
+  "noResponse": "No request sent yet",
+  "loadSchema": "Load Schema",
+  "schema": "Schema",
+  "schemaLoading": "Loading schema…",
+  "noSchema": "No schema (introspection may be disabled)",
+  "responseTab": "Response"
 }

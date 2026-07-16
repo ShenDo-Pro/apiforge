@@ -85,6 +85,12 @@ const connected = ref(false);
 const connecting = ref(false);
 const subscribed = ref<string[]>([]);
 const messages = ref<{ topic: string; payload: string; time: string }[]>([]);
+// 长会话内存上限：仅保留最近 N 条消息，避免无限增长（L14）
+const MAX_MESSAGES = 2000;
+function pushMessage(m: { topic: string; payload: string; time: string }) {
+  messages.value.unshift(m);
+  if (messages.value.length > MAX_MESSAGES) messages.value.splice(MAX_MESSAGES);
+}
 
 let client: mqtt.MqttClient | null = null;
 
@@ -138,7 +144,7 @@ function connect() {
     toast.error(t("common.error"));
   });
   client.on("message", (tp, payload) => {
-    messages.value.unshift({ topic: tp, payload: payload.toString(), time: now() });
+    pushMessage({ topic: tp, payload: payload.toString(), time: now() });
   });
   client.on("close", () => (connected.value = false));
 }
@@ -162,7 +168,7 @@ function publish() {
   const rt = vr.resolve(topic.value);
   const payload = vr.resolve(message.value);
   client.publish(rt, payload, { qos: qos.value as 0 | 1 | 2 });
-  messages.value.unshift({ topic: rt, payload, time: now() });
+  pushMessage({ topic: rt, payload, time: now() });
   message.value = "";
 }
 

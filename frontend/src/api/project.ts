@@ -1,8 +1,18 @@
 import http, { type ApiResp } from "./index";
 import type { Project, ProjectMember } from "@/types/project";
 
-export function listProjects() {
-  return http.get<ApiResp<Project[]>>("/project").then((r) => r.data.data);
+// ProjectPage 是项目列表的分页信封（M15）。
+export interface ProjectPage {
+  items: Project[];
+  total: number;
+  page: number;
+  perPage: number;
+}
+
+export function listProjects(page = 1, perPage = 200) {
+  return http
+    .get<ApiResp<ProjectPage>>("/project", { params: { page, perPage } })
+    .then((r) => r.data.data);
 }
 export function createProject(name: string, description: string) {
   return http

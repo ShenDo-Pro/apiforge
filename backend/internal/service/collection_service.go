@@ -1,9 +1,14 @@
 package service
 
 import (
+	"errors"
+
 	"apiforge/backend/internal/model"
 	"gorm.io/gorm"
 )
+
+// ErrForbidden 表示资源不属于当前项目（越权访问）。
+var ErrForbidden = errors.New("forbidden: resource does not belong to the project")
 
 // CollectionService 管理请求集合的树形结构（支持嵌套文件夹）。
 type CollectionService struct {
@@ -35,7 +40,15 @@ func (s *CollectionService) List(projectID uint) ([]model.Collection, error) {
 	return cs, err
 }
 
-func (s *CollectionService) Update(id uint, name string, sortOrder int, variables string) error {
+func (s *CollectionService) Update(id, projectID uint, name string, sortOrder int, variables string) error {
+	var c model.Collection
+	if err := s.db.First(&c, id).Error; err != nil {
+		return err
+	}
+	// 归属校验：集合必须属于当前项目，防止越权改写他人项目资源（H1）
+	if c.ProjectID != projectID {
+		return ErrForbidden
+	}
 	updates := map[string]interface{}{"name": name, "sort_order": sortOrder}
 	// variables 为空字符串时表示调用方未改动该字段，避免清空已有变量。
 	if variables != "" {
@@ -45,14 +58,22 @@ func (s *CollectionService) Update(id uint, name string, sortOrder int, variable
 }
 
 // Delete 递归删除集合及其子集合、请求，避免残留孤立数据。
-func (s *CollectionService) Delete(id uint) error {
+// projectID 用于逐层校验归属，杜绝跨项目删除（H1）。
+func (s *CollectionService) Delete(id, projectID uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		var c model.Collection
+		if err := tx.First(&c, id).Error; err != nil {
+			return err
+		}
+		if c.ProjectID != projectID {
+			return ErrForbidden
+		}
 		var children []model.Collection
 		if err := tx.Where("parent_id = ?", id).Find(&children).Error; err != nil {
 			return err
 		}
-		for _, c := range children {
-			if err := s.Delete(c.ID); err != nil {
+		for _, child := range children {
+			if err := s.Delete(child.ID, projectID); err != nil {
 				return err
 			}
 		}

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,10 +39,10 @@ func (s *PipelineService) List(projectID uint) ([]model.Pipeline, error) {
 	return ps, err
 }
 
-// Get 返回流水线及其有序步骤。
+// Get 返回流水线及其有序步骤与运行历史。
 func (s *PipelineService) Get(id uint) (*model.Pipeline, error) {
 	var p model.Pipeline
-	if err := s.db.Preload("Steps").First(&p, id).Error; err != nil {
+	if err := s.db.Preload("Steps").Preload("Runs").First(&p, id).Error; err != nil {
 		return nil, err
 	}
 	sort.Slice(p.Steps, func(i, j int) bool { return p.Steps[i].SortOrder < p.Steps[j].SortOrder })
@@ -99,10 +100,17 @@ func (s *PipelineService) Update(id uint, in PipelineUpdateReq) (*model.Pipeline
 		}).Error; err != nil {
 			return err
 		}
-		// 全量重写步骤：先删旧，再建新，保证 SortOrder 与传入一致
-		if err := tx.Where("pipeline_id = ?", id).Delete(&model.PipelineStep{}).Error; err != nil {
+		// 增量更新步骤：按 ID 复用已有步骤（保留历史 StepResult 关联），
+		// 新建无 ID 的步骤，删除客户端不再提交的旧步骤（M17）。
+		var existing []model.PipelineStep
+		if err := tx.Where("pipeline_id = ?", id).Find(&existing).Error; err != nil {
 			return err
 		}
+		existingByID := make(map[uint]model.PipelineStep, len(existing))
+		for _, e := range existing {
+			existingByID[e.ID] = e
+		}
+		kept := make(map[uint]bool, len(in.Steps))
 		for i, st := range in.Steps {
 			step := model.PipelineStep{
 				PipelineID:     id,
@@ -116,8 +124,25 @@ func (s *PipelineService) Update(id uint, in PipelineUpdateReq) (*model.Pipeline
 				Body:           st.Body,
 				Assertions:     st.Assertions,
 			}
+			if st.ID > 0 {
+				if _, ok := existingByID[st.ID]; ok {
+					step.ID = st.ID
+					kept[st.ID] = true
+					if err := tx.Model(&model.PipelineStep{}).Where("id = ?", st.ID).Updates(step).Error; err != nil {
+						return err
+					}
+					continue
+				}
+			}
 			if err := tx.Create(&step).Error; err != nil {
 				return err
+			}
+		}
+		for _, e := range existing {
+			if !kept[e.ID] {
+				if err := tx.Delete(&e).Error; err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -193,13 +218,15 @@ func (s *PipelineService) Run(pipelineID uint, trigger string) (*model.PipelineR
 		if !step.Enabled {
 			continue
 		}
-		result := s.execStep(run.ID, &step)
+		result := s.execStep(p.ID, run.ID, &step)
 		if result.Status == "passed" {
 			passed++
 		} else {
 			failed++
 		}
-		_ = s.db.Create(result).Error
+		if err := s.db.Create(result).Error; err != nil {
+			slog.Error("写入库步骤结果失败", "run", run.ID, "step", step.ID, "err", err)
+		}
 	}
 
 	run.FinishedAt = time.Now()
@@ -209,11 +236,13 @@ func (s *PipelineService) Run(pipelineID uint, trigger string) (*model.PipelineR
 		run.Status = "passed"
 	}
 	run.Summary = strconv.Itoa(passed+failed) + " steps, " + strconv.Itoa(failed) + " failed"
-	_ = s.db.Model(run).Updates(map[string]interface{}{
+	if err := s.db.Model(run).Updates(map[string]interface{}{
 		"status":      run.Status,
 		"finished_at": run.FinishedAt,
 		"summary":     run.Summary,
-	}).Error
+	}).Error; err != nil {
+		slog.Error("更新流水线运行状态失败", "run", run.ID, "err", err)
+	}
 
 	// 重新载入结果，便于返回完整数据
 	full, _ := s.GetRun(run.ID)
@@ -237,14 +266,14 @@ func (s *PipelineService) ListRuns(pipelineID uint) ([]model.PipelineRun, error)
 }
 
 // execStep 解析步骤来源（引用/内联），执行 HTTP 请求并评估断言，返回结果记录。
-func (s *PipelineService) execStep(runID uint, step *model.PipelineStep) *model.PipelineStepResult {
+func (s *PipelineService) execStep(projectID, runID uint, step *model.PipelineStep) *model.PipelineStepResult {
 	res := &model.PipelineStepResult{
 		PipelineRunID: runID,
 		StepID:        step.ID,
 		StepName:      step.Name,
 	}
 
-	method, url, headers, body, err := s.resolveStepSource(step)
+	method, url, headers, body, err := s.resolveStepSource(projectID, step)
 	res.Method = method
 	res.URL = url
 
@@ -305,11 +334,16 @@ func (s *PipelineService) execStep(runID uint, step *model.PipelineStep) *model.
 }
 
 // resolveStepSource 返回步骤实际要执行的请求定义。
-// 引用模式下加载 SavedRequest，内联字段忽略；否则使用内联定义。
-func (s *PipelineService) resolveStepSource(step *model.PipelineStep) (method, url, headers, body string, err error) {
+// 引用模式下加载 SavedRequest，并校验其归属当前项目，防止跨租户执行他人请求（M9）；
+// 内联字段忽略；否则使用内联定义。
+func (s *PipelineService) resolveStepSource(projectID uint, step *model.PipelineStep) (method, url, headers, body string, err error) {
 	if step.SavedRequestID != nil {
 		var sr model.SavedRequest
-		if e := s.db.First(&sr, *step.SavedRequestID).Error; e != nil {
+		// 通过集合关联校验请求归属当前项目，避免裸 ID 越权引用（M9）
+		if e := s.db.
+			Joins("JOIN collections ON collections.id = saved_requests.collection_id").
+			Where("saved_requests.id = ? AND collections.project_id = ?", *step.SavedRequestID, projectID).
+			First(&sr).Error; e != nil {
 			return "", "", "", "", e
 		}
 		return sr.Method, sr.URL, sr.Headers, sr.Body, nil
@@ -357,8 +391,8 @@ func (s *PipelineService) evaluateAssertions(raw string, presp *proxy.ProxyRespo
 		case "max_duration_ms":
 			r.Actual = strconv.FormatInt(presp.Timings.Total, 10)
 			want, e := strconv.ParseInt(a.Expected, 10, 64)
-			// 超时即失败；阈值非法视为通过，避免误判
-			r.Passed = e != nil || presp.Timings.Total <= want
+			// 阈值非法视为断言失败（不再静默通过），避免无效断言定义被误判通过（M19）
+			r.Passed = e == nil && presp.Timings.Total <= want
 		default:
 			r.Actual = "unknown assertion type"
 			r.Passed = false

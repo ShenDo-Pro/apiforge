@@ -61,7 +61,24 @@ const headersText = ref("");
 const message = ref("");
 const connected = ref(false);
 const connecting = ref(false);
-const frames = ref<{ dir: "sent" | "recv"; text: string; time: string }[]>([]);
+type WsFrame = {
+  dir: "sent" | "recv";
+  opcode: "text" | "binary";
+  text: string;
+  size: number;
+  time: string;
+};
+const frames = ref<WsFrame[]>([]);
+// 长会话内存上限：仅保留最近 N 条帧，避免无限增长（L14）
+const MAX_FRAMES = 2000;
+
+function utf8Len(s: string): number {
+  return new TextEncoder().encode(s).length;
+}
+function pushFrame(dir: "sent" | "recv", opcode: "text" | "binary", text: string, size: number) {
+  frames.value.push({ dir, opcode, text, size, time: now() });
+  if (frames.value.length > MAX_FRAMES) frames.value.splice(0, frames.value.length - MAX_FRAMES);
+}
 
 let ws: WebSocket | null = null;
 
@@ -77,6 +94,9 @@ function relayWsUrl(resolvedUrl: string): string {
   u.pathname = "/ws/relay";
   u.searchParams.set("proto", "ws");
   u.searchParams.set("url", resolvedUrl);
+  // 携带鉴权 token，与 gRPC/Socket/TCP/MQTT 客户端保持一致，避免后端中继拒绝连接（M28）
+  const token = localStorage.getItem("access_token");
+  if (token) u.searchParams.set("token", token);
   if (subprotocol.value) u.searchParams.set("sub", vr.resolve(subprotocol.value));
   if (headersText.value.trim()) {
     try {
@@ -127,8 +147,12 @@ function connect() {
         }
       } catch {}
     }
-    const text = typeof data === "string" ? data : `[${t("ws.binary")} ${data.byteLength}B]`;
-    frames.value.push({ dir: "recv", text, time: now() });
+    if (typeof data === "string") {
+      pushFrame("recv", "text", data, utf8Len(data));
+    } else {
+      const blob = data as Blob;
+      pushFrame("recv", "binary", `[${t("ws.binary")} ${blob.size}B]`, blob.size);
+    }
   };
   ws.onclose = () => {
     connected.value = false;
@@ -146,7 +170,7 @@ function send() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const resolvedMsg = vr.resolve(message.value);
   ws.send(resolvedMsg);
-  frames.value.push({ dir: "sent", text: resolvedMsg, time: now() });
+  pushFrame("sent", "text", resolvedMsg, utf8Len(resolvedMsg));
   message.value = "";
 }
 
@@ -204,7 +228,12 @@ onUnmounted(() => ws?.close());
             <span :class="f.dir === 'sent' ? 'text-primary' : 'text-success'">
               {{ f.dir === "sent" ? "↑" : "↓" }}
             </span>
-            <span class="break-all text-foreground">{{ f.text }}</span>
+            <span
+              class="shrink-0 rounded px-1 text-[10px] font-semibold"
+              :class="f.opcode === 'binary' ? 'bg-amber-500/20 text-amber-400' : 'bg-sky-500/20 text-sky-400'"
+            >{{ f.opcode === "binary" ? "BIN 0x2" : "TXT 0x1" }}</span>
+            <span class="shrink-0 text-muted/70">{{ f.size }}B</span>
+            <span class="break-all whitespace-pre-wrap text-foreground">{{ f.text }}</span>
           </div>
           <div v-if="frames.length === 0" class="text-xs text-muted/60">{{ t("ws.noFrames") }}</div>
         </div>

@@ -18,10 +18,11 @@ type Target struct {
 	Insecure    bool
 }
 
-// ProtocolHandler 是后期透传类协议（UDP/TCP/gRPC/GraphQL/socket.io/MCP/AI）的统一扩展点。
+// ProtocolHandler 是后端透传类协议（UDP/TCP/WS/Socket.IO/MQTT）的统一扩展点。
 // 新增协议只需实现该接口并 Register，核心路由无需改动。
+// 注意：GraphQL/MCP/AI 目前不是 relay 协议（未注册对应 Handler），gRPC 走独立的 /ws/grpc 通道。
 type ProtocolHandler interface {
-	// Name 返回协议标识，如 "udp" / "tcp" / "grpc"。
+	// Name 返回协议标识，如 "udp" / "tcp" / "ws" / "socketio" / "mqtt"。
 	Name() string
 	// Serve 在一个已升级的 WS 连接上，建立到 target 的 socket 并双向透传数据。
 	Serve(conn Conn, target Target)

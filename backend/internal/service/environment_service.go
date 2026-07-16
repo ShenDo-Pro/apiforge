@@ -66,17 +66,27 @@ func (s *EnvironmentService) Create(projectID uint, name string, values []model.
 	return env, nil
 }
 
-// Find 取单条环境（含 global）。
-func (s *EnvironmentService) Find(id uint) (*model.Environment, error) {
+// Find 取单条环境（含 global），并校验归属当前项目（H1）。
+func (s *EnvironmentService) Find(id, projectID uint) (*model.Environment, error) {
 	var env model.Environment
 	if err := s.db.First(&env, id).Error; err != nil {
 		return nil, err
 	}
+	if env.ProjectID != projectID {
+		return nil, ErrForbidden
+	}
 	return &env, nil
 }
 
-// Update 修改环境名称与变量（values 整体覆盖）。
-func (s *EnvironmentService) Update(id uint, name string, values []model.EnvVar) error {
+// Update 修改环境名称与变量（values 整体覆盖），并校验归属（H1）。
+func (s *EnvironmentService) Update(id, projectID uint, name string, values []model.EnvVar) error {
+	var env model.Environment
+	if err := s.db.First(&env, id).Error; err != nil {
+		return err
+	}
+	if env.ProjectID != projectID {
+		return ErrForbidden
+	}
 	b, err := json.Marshal(values)
 	if err != nil {
 		return err
@@ -99,10 +109,14 @@ func (s *EnvironmentService) Reorder(ids []uint) error {
 }
 
 // Delete 删除环境；global 单例不允许删除（调用方应避免），此处直接忽略。
-func (s *EnvironmentService) Delete(id uint) error {
+// projectID 用于校验归属，防止跨项目删除（H1）。
+func (s *EnvironmentService) Delete(id, projectID uint) error {
 	var env model.Environment
 	if err := s.db.First(&env, id).Error; err != nil {
 		return err
+	}
+	if env.ProjectID != projectID {
+		return ErrForbidden
 	}
 	if env.Kind == "global" {
 		return nil

@@ -1,0 +1,19 @@
+{
+  "title": "Account",
+  "subtitle": "Manage your login account",
+  "profile": "Profile",
+  "username": "Username",
+  "role": "Role",
+  "roleAdmin": "Admin",
+  "roleUser": "User",
+  "createdAt": "Created at",
+  "changePassword": "Change password",
+  "changePasswordHint": "For security, change your password periodically.",
+  "oldPassword": "Current password",
+  "newPassword": "New password",
+  "confirmPassword": "Confirm new password",
+  "passwordMismatch": "The two new passwords do not match",
+  "passwordTooShort": "New password must be at least 8 characters",
+  "changeSuccess": "Password changed",
+  "changeFailed": "Failed to change password"
+}

@@ -23,5 +23,5 @@ func (TCPHandler) Serve(c Conn, target Target) {
 	writeCtrl(c, CtrlConnected, "")
 	writeStatus(c, remote.LocalAddr().String(), remote.RemoteAddr().String())
 
-	relayStream(c, remote)
+	relayStream(c, remote, false)
 }

@@ -19,5 +19,8 @@
   "deleteProject": "删除项目",
   "removeMember": "移除成员",
   "memberName": "成员 ID",
-  "noMembers": "还没有成员"
+  "noMembers": "还没有成员",
+  "renameProject": "重命名项目",
+  "confirmDeleteProject": "确定要删除该项目吗？该操作不可恢复，项目下的集合与请求也会一并删除。",
+  "editRole": "编辑成员角色"
 }

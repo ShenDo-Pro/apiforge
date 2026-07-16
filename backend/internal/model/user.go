@@ -11,6 +11,8 @@ type User struct {
 	Username  string    `gorm:"uniqueIndex;size:64" json:"username"`
 	Password  string    `gorm:"size:255" json:"-"` // bcrypt 哈希，绝不外泄
 	Role      string    `gorm:"size:16;default:user" json:"role"`
+	// NeedReset 标记用户首次登录后必须修改密码（默认管理员强制，H6）。
+	NeedReset bool      `gorm:"default:false" json:"needReset"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 

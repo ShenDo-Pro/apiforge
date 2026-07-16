@@ -4,6 +4,48 @@ import type { VarSuggestion } from "@/stores/environment";
 
 // 变量自动补全：在任意 textarea/input 中输入 `{{` 时弹出可用变量，
 // 带「作用域来源徽标 + 解析值预览」，键盘上下/回车/Tab 插入，Esc/失焦关闭。
+
+// 用镜像 div 估算输入框内光标像素坐标（相对元素左上角）。参考 textarea-caret-position 思路。
+function getCaretCoordinates(
+  el: HTMLTextAreaElement | HTMLInputElement,
+  position: number,
+): { top: number; left: number } {
+  const style = getComputedStyle(el);
+  const div = document.createElement("div");
+  const props = [
+    "boxSizing", "width", "height", "overflowX", "overflowY",
+    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+    "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "fontStyle", "fontVariant", "fontWeight", "fontStretch", "fontSize",
+    "fontFamily", "lineHeight", "textAlign", "textTransform", "textIndent",
+    "letterSpacing", "wordSpacing", "tabSize",
+  ] as const;
+  for (const p of props) {
+    // 部分属性在 div 上无效果但拷贝无害，统一设置
+    (div.style as any)[p] = (style as any)[p];
+  }
+  div.style.position = "absolute";
+  div.style.visibility = "hidden";
+  div.style.whiteSpace = "pre-wrap";
+  div.style.wordWrap = "break-word";
+  div.style.top = "0";
+  div.style.left = "0";
+  // 镜像容器宽度与元素内容区一致，保证换行点相同
+  div.style.width = el.clientWidth + "px";
+  div.textContent = el.value.substring(0, position);
+  const span = document.createElement("span");
+  // 用零宽内容定位光标边界；空内容时以「.」兜底避免 offset 为 0
+  span.textContent = el.value.substring(position) || ".";
+  div.appendChild(span);
+  document.body.appendChild(div);
+  const coords = {
+    top: span.offsetTop + parseInt(style.borderTopWidth || "0", 10) - (el.scrollTop || 0),
+    left: span.offsetLeft + parseInt(style.borderLeftWidth || "0", 10) - (el.scrollLeft || 0),
+  };
+  document.body.removeChild(div);
+  return coords;
+}
+
 export function useVarComplete() {
   const envStore = useEnvironmentStore();
   const el = ref<HTMLTextAreaElement | HTMLInputElement | null>(null);
@@ -43,19 +85,23 @@ export function useVarComplete() {
     }
     query.value = bc.token;
     activeIndex.value = 0;
-    // 计算弹层位置（行高近似）
-    const node = el.value as HTMLTextAreaElement;
+    // 弹层定位到光标处（L12）：用镜像 div 估算 textarea/input 内光标像素坐标，
+    // 再叠加元素在视口的偏移，避免「固定贴在输入框下方」的体验问题。
+    const node = el.value as HTMLTextAreaElement | HTMLInputElement;
     const rect = node.getBoundingClientRect();
-    let caretTop = rect.bottom + 4;
+    let caretTop = rect.bottom + 6;
     let caretLeft = rect.left + 8;
     try {
-      // textarea 用镜像 div 估算，这里退化为固定在输入框下方，足够可用
-      caretTop = rect.bottom + 6;
-      caretLeft = Math.min(rect.left + 8, rect.right - 240);
+      const caret = getCaretCoordinates(node, node.selectionStart ?? 0);
+      caretTop = rect.top + caret.top + 20;
+      caretLeft = rect.left + caret.left;
     } catch {
-      /* ignore */
+      /* 估算失败退化为输入框下方 */
     }
-    top.value = caretTop;
+    // 钳制到视口内，避免溢出右/下边缘
+    caretTop = Math.min(caretTop, window.innerHeight - 200);
+    caretLeft = Math.min(caretLeft, window.innerWidth - 248);
+    top.value = Math.max(8, caretTop);
     left.value = Math.max(8, caretLeft);
     show.value = items.value.length > 0;
   }

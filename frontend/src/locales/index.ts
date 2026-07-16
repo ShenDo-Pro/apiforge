@@ -9,8 +9,12 @@ import zhCNSocket from "./zh-CN/socket.json";
 import zhCNGraphql from "./zh-CN/graphql.json";
 import zhCNSocketio from "./zh-CN/socketio.json";
 import zhCNGrpc from "./zh-CN/grpc.json";
+import zhCNAudit from "./zh-CN/audit.json";
+import zhCNAccount from "./zh-CN/account.json";
 import zhCNPipeline from "./zh-CN/pipeline.json";
 import enCommon from "./en-US/common.json";
+import enAudit from "./en-US/audit.json";
+import enAccount from "./en-US/account.json";
 import enAuth from "./en-US/auth.json";
 import enProject from "./en-US/project.json";
 import enHttp from "./en-US/http.json";
@@ -40,6 +44,8 @@ export const messages = {
     socketio: pack(zhCNSocketio),
     grpc: pack(zhCNGrpc),
     pipeline: pack(zhCNPipeline),
+    audit: pack(zhCNAudit),
+    account: pack(zhCNAccount),
   },
   "en-US": {
     common: pack(enCommon),
@@ -53,6 +59,8 @@ export const messages = {
     socketio: pack(enSocketio),
     grpc: pack(enGrpc),
     pipeline: pack(enPipeline),
+    audit: pack(enAudit),
+    account: pack(enAccount),
   },
 };
 
