@@ -26,7 +26,7 @@ const exporting = ref(false);
 const importing = ref(false);
 
 interface BackupEnvelope {
-  type: "apiforge-backup";
+  type: "apitoolx-backup";
   version: number;
   exportedAt: string;
   project: { id: number; name?: string };
@@ -64,7 +64,7 @@ async function exportBackup() {
       values: e.values,
     }));
     const backup: BackupEnvelope = {
-      type: "apiforge-backup",
+      type: "apitoolx-backup",
       version: 1,
       exportedAt: new Date().toISOString(),
       project: { id: props.projectId, name: project.current?.name },
@@ -75,7 +75,7 @@ async function exportBackup() {
     const date = new Date().toISOString().slice(0, 10);
     download(
       JSON.stringify(backup, null, 2),
-      `apiforge-backup-${project.current?.name || props.projectId}-${date}.json`,
+      `apitoolx-backup-${project.current?.name || props.projectId}-${date}.json`,
     );
     toast.success(t("common.backupExported"));
   } catch {
@@ -93,7 +93,7 @@ async function importBackup(file: File) {
   importing.value = true;
   try {
     const raw = JSON.parse(await file.text()) as BackupEnvelope;
-    if (raw?.type !== "apiforge-backup" || !Array.isArray(raw.collections)) {
+    if (raw?.type !== "apitoolx-backup" || !Array.isArray(raw.collections)) {
       toast.error(t("common.backupImportFail"));
       return;
     }

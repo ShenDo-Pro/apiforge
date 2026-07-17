@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"apiforge/backend/internal/service"
-	"apiforge/backend/internal/server"
-	"apiforge/backend/pkg/response"
+	"apitoolx/backend/internal/service"
+	"apitoolx/backend/internal/server"
+	"apitoolx/backend/pkg/response"
 )
 
 // CollectionHandler 处理请求集合的树形 CRUD。

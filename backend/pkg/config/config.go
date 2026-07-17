@@ -83,7 +83,7 @@ func applyDefaults(cfg *Config) {
 		cfg.Database.Driver = "sqlite"
 	}
 	if cfg.Database.DSN == "" {
-		cfg.Database.DSN = "./data/apiforge.db"
+		cfg.Database.DSN = "./data/apitoolx.db"
 	}
 	if cfg.Proxy.MaxBodyBytes == 0 {
 		cfg.Proxy.MaxBodyBytes = 10 << 20
@@ -98,16 +98,16 @@ func applyDefaults(cfg *Config) {
 
 // applyEnv 仅覆盖敏感或部署期必须可配的字段。
 func applyEnv(cfg *Config) {
-	if v := os.Getenv("APIFORGE_JWT_SECRET"); v != "" {
+	if v := os.Getenv("APITOOLX_JWT_SECRET"); v != "" {
 		cfg.JWT.Secret = v
 	}
-	if v := os.Getenv("APIFORGE_ALLOW_PRIVATE_TARGETS"); v == "true" || v == "1" {
+	if v := os.Getenv("APITOOLX_ALLOW_PRIVATE_TARGETS"); v == "true" || v == "1" {
 		cfg.Proxy.AllowPrivateTargets = true
 	}
-	if v := os.Getenv("APIFORGE_SKIP_TLS_VERIFY"); v == "true" || v == "1" {
+	if v := os.Getenv("APITOOLX_SKIP_TLS_VERIFY"); v == "true" || v == "1" {
 		cfg.Proxy.SkipTLSVerify = true
 	}
-	if v := os.Getenv("APIFORGE_REQUIRE_HTTPS"); v == "true" || v == "1" {
+	if v := os.Getenv("APITOOLX_REQUIRE_HTTPS"); v == "true" || v == "1" {
 		cfg.Proxy.RequireHTTPS = true
 	}
 	if v := os.Getenv("DB_DRIVER"); v != "" {

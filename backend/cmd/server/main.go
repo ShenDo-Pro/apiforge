@@ -10,15 +10,15 @@ import (
 	"strings"
 	"time"
 
-	"apiforge/backend/internal/handler"
-	"apiforge/backend/internal/middleware"
-	"apiforge/backend/internal/proxy"
-	"apiforge/backend/internal/relay"
-	grpcproxy "apiforge/backend/internal/grpc"
-	"apiforge/backend/internal/server"
-	"apiforge/backend/internal/service"
-	"apiforge/backend/pkg/config"
-	"apiforge/backend/pkg/database"
+	"apitoolx/backend/internal/handler"
+	"apitoolx/backend/internal/middleware"
+	"apitoolx/backend/internal/proxy"
+	"apitoolx/backend/internal/relay"
+	grpcproxy "apitoolx/backend/internal/grpc"
+	"apitoolx/backend/internal/server"
+	"apitoolx/backend/internal/service"
+	"apitoolx/backend/pkg/config"
+	"apitoolx/backend/pkg/database"
 )
 
 func main() {
@@ -38,26 +38,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	// JWT 密钥兜底：未通过环境变量 APIFORGE_JWT_SECRET 注入时，拒绝使用公开固定串，
+	// JWT 密钥兜底：未通过环境变量 APITOOLX_JWT_SECRET 注入时，拒绝使用公开固定串，
 	// 改为生成临时随机密钥并告警（重启后失效，生产务必设置环境变量）（H2）。
 	if cfg.JWT.Secret == "" {
 		b := make([]byte, 32)
 		_, _ = rand.Read(b)
 		cfg.JWT.Secret = hex.EncodeToString(b)
-		slog.Warn("APIFORGE_JWT_SECRET 未设置，已使用临时随机密钥（重启后失效），生产环境请通过环境变量注入强随机密钥")
+		slog.Warn("APITOOLX_JWT_SECRET 未设置，已使用临时随机密钥（重启后失效），生产环境请通过环境变量注入强随机密钥")
 	}
 
 	// 注入代理/中继安全配置（SSRF/TLS/超时/消息上限/HTTPS 强制）
 	proxy.Configure(cfg.Proxy.AllowPrivateTargets, cfg.Proxy.SkipTLSVerify, cfg.Proxy.DefaultTimeoutMs)
 	relay.Configure(cfg.Proxy.AllowPrivateTargets, cfg.Proxy.SkipTLSVerify, 16<<20, cfg.Proxy.RequireHTTPS, cfg.Proxy.MaxConns)
 
-	// 首次启动无用户时创建默认管理员，密码取自 APIFORGE_ADMIN_PASSWORD，
+	// 首次启动无用户时创建默认管理员，密码取自 APITOOLX_ADMIN_PASSWORD，
 	// 未设置则生成随机密码并告警（不再硬编码弱口令）（H6）
-	adminUser := os.Getenv("APIFORGE_ADMIN_USERNAME")
+	adminUser := os.Getenv("APITOOLX_ADMIN_USERNAME")
 	if adminUser == "" {
 		adminUser = "admin"
 	}
-	adminPwd := os.Getenv("APIFORGE_ADMIN_PASSWORD")
+	adminPwd := os.Getenv("APITOOLX_ADMIN_PASSWORD")
 	database.SeedAdmin(db, adminUser, adminPwd)
 
 	// 业务层
@@ -181,7 +181,7 @@ func main() {
 	}))
 
 	addr := ":" + strconv.Itoa(cfg.Server.Port)
-	slog.Info("Apiforge 服务启动", "addr", addr)
+	slog.Info("ApiToolX 服务启动", "addr", addr)
 	// 全局超时，防止慢连接/慢请求无限占用工作线程（M11）
 	srv := &http.Server{
 		Addr:         addr,

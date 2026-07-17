@@ -1,4 +1,4 @@
-// Postman Collection v2.1 与 Apiforge 树形结构的双向映射。
+// Postman Collection v2.1 与 ApiToolX 树形结构的双向映射。
 // 导入/导出逻辑全部在前端完成，不新增后端接口：导出即序列化 JSON 下载，
 // 导入即把解析出的 folders/requests 顺序复用现有 createCollection / saveRequest 建树。
 import type { Collection, SavedRequest } from "@/types/project";
@@ -18,7 +18,7 @@ export interface ImportOp {
 export interface PostmanPlan {
   name: string;
   ops: ImportOp[];
-  unsupportedAuth: boolean; // 是否存在 Apiforge 不支持的鉴权类型（已降级为 none）
+  unsupportedAuth: boolean; // 是否存在 ApiToolX 不支持的鉴权类型（已降级为 none）
 }
 
 const POSTMAN_SCHEMA = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json";
@@ -38,8 +38,8 @@ function authVal(list: any[] | undefined, key: string): string {
   return item ? String(item.value ?? "") : "";
 }
 
-// Postman 鉴权 → Apiforge AuthConfig。digest/ntlm/awsv4 等缺失类型降级为 none 并标记。
-function postmanAuthToApiforge(auth: any): { config: AuthConfig; unsupported: boolean } {
+// Postman 鉴权 → ApiToolX AuthConfig。digest/ntlm/awsv4 等缺失类型降级为 none 并标记。
+function postmanAuthToApiToolX(auth: any): { config: AuthConfig; unsupported: boolean } {
   if (!auth || !auth.type || auth.type === "noauth") {
     return { config: { type: "none" }, unsupported: false };
   }
@@ -83,13 +83,13 @@ function postmanAuthToApiforge(auth: any): { config: AuthConfig; unsupported: bo
       };
     }
     default:
-      // digest / edge / ntlm / awsv4 等在 Apiforge 暂无对应实现
+      // digest / edge / ntlm / awsv4 等在 ApiToolX 暂无对应实现
       return { config: { type: "none" }, unsupported: true };
   }
 }
 
-// Apiforge AuthConfig → Postman 鉴权结构。
-function apiforgeAuthToPostman(authRaw: string): any {
+// ApiToolX AuthConfig → Postman 鉴权结构。
+function apitoolxAuthToPostman(authRaw: string): any {
   let cfg: AuthConfig = { type: "none" };
   if (authRaw) {
     try {
@@ -140,7 +140,7 @@ function apiforgeAuthToPostman(authRaw: string): any {
 
 // ---- 请求头转换 ----
 
-function apiforgeHeadersToPostman(headersRaw: string): any[] {
+function apitoolxHeadersToPostman(headersRaw: string): any[] {
   let obj: Record<string, string> = {};
   if (headersRaw) {
     try {
@@ -152,7 +152,7 @@ function apiforgeHeadersToPostman(headersRaw: string): any[] {
   return Object.entries(obj).map(([key, value]) => ({ key, value }));
 }
 
-function postmanHeadersToApiforge(header: any): string {
+function postmanHeadersToApiToolX(header: any): string {
   const obj: Record<string, string> = {};
   for (const h of header || []) {
     if (!h.disabled && h.key) obj[h.key] = h.value ?? "";
@@ -162,12 +162,12 @@ function postmanHeadersToApiforge(header: any): string {
 
 // ---- Body 转换 ----
 
-// Apiforge 的 body 为 {_v:1, mode, rawLang, raw, form, urlencoded} 的 JSON 字符串。
+// ApiToolX 的 body 为 {_v:1, mode, rawLang, raw, form, urlencoded} 的 JSON 字符串。
 function mapRawLang(l: string): string {
   return ["json", "text", "xml", "javascript", "html"].includes(l) ? l : "json";
 }
 
-function apiforgeBodyToPostman(bodyRaw: string): any | null {
+function apitoolxBodyToPostman(bodyRaw: string): any | null {
   if (!bodyRaw) return null;
   let o: any = null;
   try {
@@ -204,7 +204,7 @@ function apiforgeBodyToPostman(bodyRaw: string): any | null {
   return null;
 }
 
-function postmanBodyToApiforge(body: any): string {
+function postmanBodyToApiToolX(body: any): string {
   if (!body || !body.mode) return JSON.stringify({ _v: 1, mode: "none" });
   if (body.mode === "raw") {
     return JSON.stringify({
@@ -247,20 +247,20 @@ function postmanUrlToString(url: any): string {
   return url.raw || "";
 }
 
-// ---- 导出（Apiforge → Postman v2.1）----
+// ---- 导出（ApiToolX → Postman v2.1）----
 
 function requestToPostmanItem(r: SavedRequest): any {
   const item: any = {
     name: r.name || "Untitled",
     request: {
       method: r.method || "GET",
-      header: apiforgeHeadersToPostman(r.headers),
+      header: apitoolxHeadersToPostman(r.headers),
       url: r.url,
     },
   };
-  const pmBody = apiforgeBodyToPostman(r.body);
+  const pmBody = apitoolxBodyToPostman(r.body);
   if (pmBody) item.request.body = pmBody;
-  const pmAuth = apiforgeAuthToPostman(r.auth);
+  const pmAuth = apitoolxAuthToPostman(r.auth);
   if (pmAuth) item.request.auth = pmAuth;
 
   const events: any[] = [];
@@ -303,14 +303,14 @@ export function exportCollection(
   };
 }
 
-// ---- 导入（Postman v2.1 → Apiforge）----
+// ---- 导入（Postman v2.1 → ApiToolX）----
 
 function postmanRequestToPayload(request: any): { payload: SaveRequestPayload; unsupportedAuth: boolean } {
   const method = request.method || "GET";
   const url = postmanUrlToString(request.url);
-  const headers = postmanHeadersToApiforge(request.header);
-  const body = postmanBodyToApiforge(request.body);
-  const authRes = postmanAuthToApiforge(request.auth);
+  const headers = postmanHeadersToApiToolX(request.header);
+  const body = postmanBodyToApiToolX(request.body);
+  const authRes = postmanAuthToApiToolX(request.auth);
   const auth = JSON.stringify(authRes.config);
   return {
     payload: { protocol: "http", name: "", method, url, headers, body, auth },

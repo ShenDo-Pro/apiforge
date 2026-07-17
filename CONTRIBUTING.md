@@ -1,6 +1,6 @@
 # 贡献指南 (Contributing)
 
-感谢你考虑为 **Apiforge** 做贡献！这是一个开源的 API 客户端，对标 Postman，支持
+感谢你考虑为 **ApiToolX** 做贡献！这是一个开源的 API 客户端，对标 Postman，支持
 HTTP/HTTP2、WebSocket、MQTT、GraphQL、gRPC、TCP/UDP 等多协议一体化调试，并计划提供
 AI 原生调试、轻量自托管协作与本地优先（Git 友好）的桌面客户端。
 

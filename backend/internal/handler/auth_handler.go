@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"apiforge/backend/internal/middleware"
-	"apiforge/backend/internal/service"
-	"apiforge/backend/pkg/config"
-	"apiforge/backend/pkg/response"
+	"apitoolx/backend/internal/middleware"
+	"apitoolx/backend/internal/service"
+	"apitoolx/backend/pkg/config"
+	"apitoolx/backend/pkg/response"
 )
 
 // maxAuthBody 限制认证接口请求体大小，防止超大请求体耗尽内存（M12）。

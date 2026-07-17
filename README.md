@@ -1,13 +1,13 @@
-# Apiforge
+# ApiToolX
 
 > Self-hosted, multi-protocol API client — one Go binary, no cloud lock-in.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-[![CI](https://github.com/ShenDo-Pro/apiforge/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
+[![CI](https://github.com/ShenDo-Pro/apitoolx/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 
 > 📖 Chinese version: [README.zh-CN.md](README.zh-CN.md)
 
-**Apiforge** is an open-source API client you run on your own server. A single
+**ApiToolX** is an open-source API client you run on your own server. A single
 Go binary serves the entire Vue 3 web UI, so your requests, tokens and API
 keys never leave your infrastructure.
 
@@ -16,7 +16,7 @@ Unlike most API clients, it isn't limited to REST & GraphQL — it also speaks
 message-broker debugging. Teams get per-project roles and permissions; everyone
 gets saved collections, dark mode and a Chinese / English interface.
 
-## Why Apiforge
+## Why ApiToolX
 
 - **Self-hosted & single-binary** — no account, no telemetry, no vendor cloud.
 - **Multi-protocol in one tool** — HTTP / HTTP2, WebSocket, MQTT, Socket.IO,
@@ -30,7 +30,7 @@ Planned: MCP and AI / LLM endpoint debugging.
 
 ## Screenshot
 
-![Apiforge — multi-protocol API client](docs/screenshot.png)
+![ApiToolX — multi-protocol API client](docs/screenshot.png)
 
 ## Tech stack
 
@@ -78,7 +78,7 @@ variables:
 
 | Env var               | Description                                  |
 | --------------------- | -------------------------------------------- |
-| `APIFORGE_JWT_SECRET`| JWT signing secret (change in production)    |
+| `APITOOLX_JWT_SECRET`| JWT signing secret (change in production)    |
 | `DB_DRIVER`           | `sqlite` (default) / `pg` / `mysql`          |
 | `DB_DSN`              | Database connection string                   |
 | `SERVER_PORT`         | Listen port                                  |
@@ -86,7 +86,7 @@ variables:
 Example (switch to PostgreSQL):
 
 ```bash
-DB_DRIVER=pg DB_DSN="host=localhost user=app dbname=apiforge sslmode=disable" ./apiforge
+DB_DRIVER=pg DB_DSN="host=localhost user=app dbname=apitoolx sslmode=disable" ./apitoolx
 ```
 
 ## Permission model
@@ -101,7 +101,7 @@ DB_DRIVER=pg DB_DSN="host=localhost user=app dbname=apiforge sslmode=disable" ./
 
 ## Roadmap
 
-Apiforge advances in phases by protocol maturity and collaboration capability.
+ApiToolX advances in phases by protocol maturity and collaboration capability.
 The table below lists each phase's goals and current status.
 
 | Phase | Goals | Status |
@@ -153,15 +153,15 @@ Covers the most common request-response and long-lived connection scenarios:
 ### Deployment notes
 
 - **Non-root-path deployment**: the frontend is a SPA. If hosted under a sub-path (e.g.
-  `/apiforge/`), set `base: "/apiforge/"` in `vite.config.ts` and rebuild with `npm run build`;
+  `/apitoolx/`), set `base: "/apitoolx/"` in `vite.config.ts` and rebuild with `npm run build`;
   the backend `SpaHandler` static directory and fallback route must match that prefix.
 - **Enforce HTTPS in production**: terminate TLS at a reverse proxy (Nginx / Caddy / LB) and set
-  `proxy.require_https: true` in `config.yaml` (or `APIFORGE_REQUIRE_HTTPS=true`). Once enabled,
+  `proxy.require_https: true` in `config.yaml` (or `APITOOLX_REQUIRE_HTTPS=true`). Once enabled,
   the relay (`/ws/relay`) handshake is forced over TLS to prevent WebSocket / Socket.IO tokens
   passed via the query string from leaking over an unencrypted channel (L1).
 - **Admin credentials**: on first launch you can override the default admin with
-  `APIFORGE_ADMIN_USERNAME` / `APIFORGE_ADMIN_PASSWORD` (default username `admin`); when
-  `APIFORGE_ADMIN_PASSWORD` is unset a random strong password is generated and warned in the logs
+  `APITOOLX_ADMIN_USERNAME` / `APITOOLX_ADMIN_PASSWORD` (default username `admin`); when
+  `APITOOLX_ADMIN_PASSWORD` is unset a random strong password is generated and warned in the logs
   (no more hardcoded weak password). Regardless of source, the default admin is flagged "must change
   password on first login" and is forced to the reset screen after logging in (H6). Strongly
   recommend setting the password via environment variable at deploy time and changing it
@@ -212,7 +212,7 @@ Reviewed from `bug.md` (see also `bug_rep.md`). Legend: **✅ Resolved** / **�
 
 ## License
 
-Apiforge is licensed under the [GNU Affero General Public License v3.0](LICENSE).
-If you plan to offer Apiforge as a network service, AGPL requires you to make your
+ApiToolX is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+If you plan to offer ApiToolX as a network service, AGPL requires you to make your
 modified source available to users. See [CONTRIBUTING.md](CONTRIBUTING.md) to get
 started.

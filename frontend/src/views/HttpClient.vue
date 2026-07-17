@@ -160,7 +160,7 @@ function buildBody(): { body: string; contentType: string | null } {
     return { body: q, contentType: "application/x-www-form-urlencoded" };
   }
   // formdata：文本值直接写；文件项以文本方式读取写入（二进制文件经字符串通道可能损坏，详见说明）
-  const boundary = "----apiforgeBoundary" + Date.now().toString(36);
+  const boundary = "----apitoolxBoundary" + Date.now().toString(36);
   const parts: string[] = [];
   for (const f of formItems.value) {
     if (!f.enabled || !f.key.trim()) continue;
@@ -193,7 +193,7 @@ const extractRules = ref<ExtractRule[]>([]);
 const auth = ref<AuthConfig>(defaultAuth());
 
 const DEFAULT_HEADERS: HeaderRow[] = [
-  { key: "User-Agent", value: "apiforge", enabled: true },
+  { key: "User-Agent", value: "apitoolx", enabled: true },
   { key: "Accept", value: "*/*", enabled: true },
 ];
 
@@ -484,7 +484,9 @@ async function onPick(collectionId: number, name: string) {
         <Select v-model="method" class="w-32">
           <option v-for="m in methods" :key="m" :value="m">{{ m }}</option>
         </Select>
-        <VarInput v-model="url" :placeholder="t('http.urlPlaceholder')" class="flex-1" @keyup.enter="send" />
+        <div class="flex-1 min-w-0">
+          <VarInput v-model="url" :placeholder="t('http.urlPlaceholder')" @keyup.enter="send" />
+        </div>
         <Button :disabled="loading" @click="send">
           <Play :size="15" /> {{ t("http.send") }}
         </Button>

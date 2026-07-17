@@ -13,13 +13,13 @@ WORKDIR /app/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
-RUN CGO_ENABLED=0 go build -o /apiforge ./cmd/server
+RUN CGO_ENABLED=0 go build -o /apitoolx ./cmd/server
 
 # ---- Runtime ----
 FROM alpine:3.20
 WORKDIR /app/backend
 RUN apk add --no-cache ca-certificates
-COPY --from=backend /apiforge /app/backend/apiforge
+COPY --from=backend /apitoolx /app/backend/apitoolx
 COPY --from=frontend /app/backend/frontend/dist /app/backend/frontend/dist
 EXPOSE 8080
-CMD ["/app/backend/apiforge"]
+CMD ["/app/backend/apitoolx"]

@@ -3,9 +3,9 @@ package service
 import (
 	"errors"
 
-	"apiforge/backend/internal/model"
-	"apiforge/backend/internal/token"
-	"apiforge/backend/pkg/config"
+	"apitoolx/backend/internal/model"
+	"apitoolx/backend/internal/token"
+	"apitoolx/backend/pkg/config"
 	"gorm.io/gorm"
 )
 

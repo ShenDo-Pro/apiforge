@@ -12,7 +12,7 @@ import type { EnvVar, Environment, EnvScope } from "@/types/project";
 
 // 活动环境选择态按项目隔离，避免切换项目时串用其它项目的活动环境（M27）
 function activeKeyFor(projectId: number | null): string {
-  return projectId != null ? `apiforge:activeEnv:${projectId}` : "apiforge:activeEnv";
+  return projectId != null ? `apitoolx:activeEnv:${projectId}` : "apitoolx:activeEnv";
 }
 
 // 环境变量 store：服务端持久化（跟项目走、多人共享），活动环境选择态留本地。

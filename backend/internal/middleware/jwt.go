@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"apiforge/backend/internal/token"
-	"apiforge/backend/pkg/config"
-	"apiforge/backend/pkg/response"
+	"apitoolx/backend/internal/token"
+	"apitoolx/backend/pkg/config"
+	"apitoolx/backend/pkg/response"
 )
 
 // contextKey 用独立类型避免与其他包键冲突。

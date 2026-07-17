@@ -1,4 +1,4 @@
-module apiforge/backend
+module apitoolx/backend
 
 go 1.26
 

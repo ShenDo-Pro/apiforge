@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"apiforge/backend/internal/netutil"
+	"apitoolx/backend/internal/netutil"
 )
 
 var upgrader = websocket.Upgrader{

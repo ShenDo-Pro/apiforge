@@ -6,7 +6,7 @@ server:
   public_url: ""
 
 # JWT 配置
-# 警告：生产部署必须通过环境变量 APIFORGE_JWT_SECRET 注入强随机密钥。
+# 警告：生产部署必须通过环境变量 APITOOLX_JWT_SECRET 注入强随机密钥。
 # 此处留空，未设置环境变量时启动将拒绝使用公开串签发票（H2）。
 jwt:
   secret: ""
@@ -17,7 +17,7 @@ jwt:
 database:
   driver: sqlite
   # sqlite 默认本地文件；pg/mysql 填写对应 DSN
-  dsn: "./data/apiforge.db"
+  dsn: "./data/apitoolx.db"
 
 # 代理配置
 proxy:
@@ -30,7 +30,7 @@ proxy:
   # 代理/请求默认超时（毫秒），避免无限挂起。
   default_timeout_ms: 30000
   # 是否强制中继/WS 握手走 HTTPS。默认 false；生产建议设为 true，
-  # 避免 token 经 query 在非加密信道泄露（L1）。也可经 APIFORGE_REQUIRE_HTTPS=true 注入。
+  # 避免 token 经 query 在非加密信道泄露（L1）。也可经 APITOOLX_REQUIRE_HTTPS=true 注入。
   require_https: false
   # 中继（/ws/relay）并发连接上限，0 表示不限制（默认 512）。防止大量长连接压垮实例（M24）。
   max_conns: 512

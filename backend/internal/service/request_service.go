@@ -1,7 +1,7 @@
 package service
 
 import (
-	"apiforge/backend/internal/model"
+	"apitoolx/backend/internal/model"
 	"gorm.io/gorm"
 )
 

@@ -16,4 +16,4 @@
 ## 默认凭据
 
 首次启动后端会 seed 一个管理员 `admin / admin123`。**生产环境请务必修改密码并配置
-`APIFORGE_JWT_SECRET`**，避免凭据泄露。
+`APITOOLX_JWT_SECRET`**，避免凭据泄露。

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"apiforge/backend/internal/proxy"
-	"apiforge/backend/pkg/response"
+	"apitoolx/backend/internal/proxy"
+	"apitoolx/backend/pkg/response"
 )
 
 // maxProxyBody 代理请求体上限（字节），防止超大请求体耗尽内存（M12）。

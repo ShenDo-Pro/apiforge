@@ -3,7 +3,7 @@ package service
 import (
 	"errors"
 
-	"apiforge/backend/internal/model"
+	"apitoolx/backend/internal/model"
 	"gorm.io/gorm"
 )
 

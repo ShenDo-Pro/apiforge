@@ -1,8 +1,8 @@
 .PHONY: build run dev test lint docker clean
 
-# 构建前后端：前端产物输出到 backend/frontend/dist，后端二进制输出到 bin/apiforge
+# 构建前后端：前端产物输出到 backend/frontend/dist，后端二进制输出到 bin/apitoolx
 build:
-	cd backend && go build -o ../bin/apiforge ./cmd/server
+	cd backend && go build -o ../bin/apitoolx ./cmd/server
 	cd frontend && npm install && npm run build
 
 # 仅运行后端（需先 build 前端，或开发时另开 npm run dev）
@@ -25,7 +25,7 @@ lint:
 
 # 构建并打 Docker 镜像
 docker:
-	docker build -t apiforge:latest .
+	docker build -t apitoolx:latest .
 
 clean:
 	rm -rf bin backend/frontend/dist
